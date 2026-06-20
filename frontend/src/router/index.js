@@ -12,8 +12,10 @@ const routes = [
       { path: 'teams', name: 'TeamList', component: () => import('@/views/team/TeamList.vue'), meta: { title: '找队伍' } },
       { path: 'teams/create', name: 'TeamCreate', component: () => import('@/views/team/TeamCreate.vue'), meta: { title: '创建队伍' } },
       { path: 'teams/:id', name: 'TeamDetail', component: () => import('@/views/team/TeamDetail.vue'), meta: { title: '队伍详情' } },
+      { path: 'teams/:id/applies', name: 'TeamApplies', component: () => import('@/views/team/TeamApplies.vue'), meta: { title: '申请管理' } },
       { path: 'competitions', name: 'CompetitionList', component: () => import('@/views/competition/CompetitionList.vue'), meta: { title: '竞赛' } },
       { path: 'mine', name: 'MyTeams', component: () => import('@/views/team/MyTeams.vue'), meta: { title: '我的队伍' } },
+      { path: 'my-applications', name: 'MyApplications', component: () => import('@/views/MyApplications.vue'), meta: { title: '我的申请' } },
       { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { title: '个人主页' } },
       { path: 'user/:id', name: 'UserProfile', component: () => import('@/views/Profile.vue'), meta: { title: '用户主页' } }
     ]

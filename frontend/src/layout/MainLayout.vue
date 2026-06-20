@@ -32,6 +32,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">个人主页</el-dropdown-item>
+                <el-dropdown-item command="applications">我的申请</el-dropdown-item>
                 <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -60,6 +61,8 @@ const activeMenu = computed(() => '/' + (route.path.split('/')[1] || 'teams'))
 function onCommand(command) {
   if (command === 'profile') {
     router.push('/profile')
+  } else if (command === 'applications') {
+    router.push('/my-applications')
   } else if (command === 'logout') {
     userStore.logout()
     router.push('/login')

@@ -21,12 +21,16 @@
           </div>
           <div class="head-ops">
             <template v-if="isLeader">
+              <el-button type="primary" @click="$router.push(`/teams/${team.id}/applies`)">
+                申请管理
+              </el-button>
               <el-button type="primary" plain @click="openEdit">编辑</el-button>
               <el-button type="danger" plain @click="onDissolve">解散</el-button>
             </template>
-            <el-button v-else-if="team.status === 'RECRUITING'" type="primary" @click="onApply">
+            <el-button v-else-if="!isMember && team.status === 'RECRUITING'" type="primary" @click="onApply">
               申请加入
             </el-button>
+            <el-tag v-else-if="isMember" type="success" size="large">已加入</el-tag>
           </div>
         </div>
 
@@ -82,6 +86,27 @@
         <el-button type="primary" :loading="saving" @click="saveEdit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 申请加入 -->
+    <el-dialog v-model="applyDialog" title="申请加入队伍" width="480px">
+      <el-form :model="applyForm" label-position="top">
+        <el-form-item label="自我介绍">
+          <el-input v-model="applyForm.selfIntro" type="textarea" :rows="3"
+                    placeholder="简单介绍一下你自己" />
+        </el-form-item>
+        <el-form-item label="技能说明">
+          <el-input v-model="applyForm.skillDesc" type="textarea" :rows="3"
+                    placeholder="你能为队伍带来什么" />
+        </el-form-item>
+        <el-form-item label="个人主页链接">
+          <el-input v-model="applyForm.profileLink" placeholder="可选，如 GitHub / 作品集" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="applyDialog = false">取消</el-button>
+        <el-button type="primary" :loading="applying" @click="doApply">提交申请</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -91,6 +116,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTeam, updateTeam, deleteTeam } from '@/api/team'
 import { pageCompetitions } from '@/api/competition'
+import { submitApply } from '@/api/apply'
 import { useUserStore } from '@/store/user'
 import { TEAM_STATUS, TEAM_STATUS_MAP, TEAM_STATUS_TAG } from '@/constants'
 
@@ -102,6 +128,13 @@ const loading = ref(false)
 const detail = ref(null)
 const team = computed(() => detail.value?.team || {})
 const isLeader = computed(() => team.value.leaderId === userStore.user?.id)
+const isMember = computed(() =>
+  (detail.value?.members || []).some((m) => m.userId === userStore.user?.id)
+)
+
+const applyDialog = ref(false)
+const applying = ref(false)
+const applyForm = reactive({ selfIntro: '', skillDesc: '', profileLink: '' })
 
 const competitions = ref([])
 const editDialog = ref(false)
@@ -153,7 +186,19 @@ async function onDissolve() {
 }
 
 function onApply() {
-  ElMessage.info('申请加入功能将在「申请模块」（Day6+）开放')
+  Object.assign(applyForm, { selfIntro: '', skillDesc: '', profileLink: '' })
+  applyDialog.value = true
+}
+
+async function doApply() {
+  applying.value = true
+  try {
+    await submitApply({ teamId: team.value.id, ...applyForm })
+    ElMessage.success('申请已提交，请等待队长审核')
+    applyDialog.value = false
+  } finally {
+    applying.value = false
+  }
 }
 
 onMounted(load)
