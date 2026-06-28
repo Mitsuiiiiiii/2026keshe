@@ -5,11 +5,13 @@ import com.campuslink.common.BusinessException;
 import com.campuslink.common.ResultCode;
 import com.campuslink.entity.Evaluation;
 import com.campuslink.entity.EvaluationReply;
+import com.campuslink.entity.ReputationLog;
 import com.campuslink.entity.Report;
 import com.campuslink.entity.User;
 import com.campuslink.mapper.EvaluationMapper;
 import com.campuslink.mapper.EvaluationReplyMapper;
 import com.campuslink.mapper.ReportMapper;
+import com.campuslink.mapper.ReputationLogMapper;
 import com.campuslink.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -45,9 +47,10 @@ public class EvaluationService {
     private final EvaluationReplyMapper replyMapper;
     private final ReportMapper reportMapper;
     private final UserMapper userMapper;
+    private final ReputationLogMapper reputationLogMapper;
 
     public Evaluation submit(Long teamId, Long fromUserId, Long toUserId,
-                             int responsibility, int tech, int communication) {
+                             int responsibility, int tech, int communication, Integer anonymous) {
         if (fromUserId.equals(toUserId)) {
             throw new BusinessException("不能给自己评价");
         }
@@ -67,17 +70,62 @@ public class EvaluationService {
         eval.setResponsibility(responsibility);
         eval.setTech(tech);
         eval.setCommunication(communication);
+        eval.setAnonymous(anonymous == null ? 0 : (anonymous != 0 ? 1 : 0));
         evaluationMapper.insert(eval);
-        LOGGER.info("评价已提交, evalId={}, toUserId={}", eval.getId(), toUserId);
+        LOGGER.info("评价已提交, evalId={}, toUserId={}, anonymous={}", eval.getId(), toUserId, eval.getAnonymous());
 
-        recalcReputation(toUserId);
+        recalcReputation(toUserId, eval.getId());
+        return eval;
+    }
+
+    /**
+     * 切换某条评价的匿名状态（仅评价人本人可切换自己的评价）。
+     */
+    public Evaluation toggleAnonymous(Long evaluationId, Integer anonymous, Long currentUserId) {
+        Evaluation eval = evaluationMapper.selectById(evaluationId);
+        if (eval == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND);
+        }
+        if (!eval.getFromUserId().equals(currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只能切换自己的评价");
+        }
+        eval.setAnonymous(anonymous != null && anonymous != 0 ? 1 : 0);
+        evaluationMapper.updateById(eval);
+        LOGGER.info("评价匿名状态已切换, evalId={}, anonymous={}", evaluationId, eval.getAnonymous());
         return eval;
     }
 
     public List<Evaluation> listByUser(Long userId) {
-        return evaluationMapper.selectList(new LambdaQueryWrapper<Evaluation>()
+        List<Evaluation> list = evaluationMapper.selectList(new LambdaQueryWrapper<Evaluation>()
                 .eq(Evaluation::getToUserId, userId)
                 .orderByDesc(Evaluation::getCreateTime));
+        return maskAnonymous(list);
+    }
+
+    /**
+     * 处理匿名展示：anonymous=1 时隐藏评价人真实身份（fromUserId 置空、fromUserName 显示“匿名用户”），
+     * 实名时回填评价人昵称。toUser 不受影响。
+     */
+    private List<Evaluation> maskAnonymous(List<Evaluation> list) {
+        for (Evaluation e : list) {
+            if (e.getAnonymous() != null && e.getAnonymous() == 1) {
+                e.setFromUserId(null);
+                e.setFromUserName("匿名用户");
+            } else if (e.getFromUserId() != null) {
+                User from = userMapper.selectById(e.getFromUserId());
+                e.setFromUserName(from == null ? null : from.getNickname());
+            }
+        }
+        return list;
+    }
+
+    /**
+     * 查询某用户信誉分变动记录（时间倒序）。
+     */
+    public List<ReputationLog> reputationLog(Long userId) {
+        return reputationLogMapper.selectList(new LambdaQueryWrapper<ReputationLog>()
+                .eq(ReputationLog::getUserId, userId)
+                .orderByDesc(ReputationLog::getCreateTime));
     }
 
     public EvaluationReply reply(Long evaluationId, String content, Long authorId) {
@@ -161,7 +209,7 @@ public class EvaluationService {
         return result;
     }
 
-    private void recalcReputation(Long userId) {
+    private void recalcReputation(Long userId, Long refEvalId) {
         List<Evaluation> list = listByUser(userId);
         if (list.isEmpty()) {
             return;
@@ -172,9 +220,24 @@ public class EvaluationService {
                 .orElse(5.0);
         User user = userMapper.selectById(userId);
         if (user != null) {
-            user.setReputation(round(avg));
+            BigDecimal before = user.getReputation() == null ? BigDecimal.ZERO : user.getReputation();
+            BigDecimal after = round(avg);
+            user.setReputation(after);
             userMapper.updateById(user);
-            LOGGER.info("信誉分已重算, userId={}, reputation={}", userId, user.getReputation());
+            LOGGER.info("信誉分已重算, userId={}, reputation={}", userId, after);
+
+            if (before.compareTo(after) != 0) {
+                ReputationLog log = new ReputationLog();
+                log.setUserId(userId);
+                log.setBeforeValue(before);
+                log.setAfterValue(after);
+                log.setChangeValue(after.subtract(before));
+                log.setSourceType("EVAL");
+                log.setReason("收到新评价，信誉分按各维度平均分重算");
+                log.setRefId(refEvalId);
+                reputationLogMapper.insert(log);
+                LOGGER.info("信誉分变动记录已写入, userId={}, before={}, after={}", userId, before, after);
+            }
         }
     }
 

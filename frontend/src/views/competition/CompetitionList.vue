@@ -37,9 +37,21 @@
               <el-icon><Clock /></el-icon>
               报名截止：{{ c.deadline ? c.deadline.slice(0, 10) : '不限' }}
             </span>
-            <div v-if="isAdmin" class="admin-ops">
-              <el-button link type="primary" size="small" @click="openEdit(c)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="onDelete(c)">删除</el-button>
+            <div class="card-ops">
+              <el-button
+                v-if="isLogin"
+                link
+                size="small"
+                :type="favMap[c.id] ? 'warning' : 'info'"
+                @click.stop="toggleFav(c)"
+              >
+                <el-icon><StarFilled v-if="favMap[c.id]" /><Star v-else /></el-icon>
+                {{ favMap[c.id] ? '已收藏' : '收藏' }}
+              </el-button>
+              <template v-if="isAdmin">
+                <el-button link type="primary" size="small" @click="openEdit(c)">编辑</el-button>
+                <el-button link type="danger" size="small" @click="onDelete(c)">删除</el-button>
+              </template>
             </div>
           </div>
         </el-card>
@@ -96,11 +108,41 @@ import {
   updateCompetition,
   deleteCompetition
 } from '@/api/competition'
+import { listFavorites, addFavorite, removeFavorite } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import { COMPETITION_TYPES, COMPETITION_TYPE_MAP, COMPETITION_TYPE_TAG } from '@/constants'
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
+const isLogin = computed(() => userStore.isLogin)
+
+// 竞赛id -> 收藏记录id（用于取消收藏）
+const favMap = reactive({})
+
+async function loadFavorites() {
+  if (!isLogin.value) return
+  try {
+    const list = await listFavorites('COMPETITION')
+    Object.keys(favMap).forEach((k) => delete favMap[k])
+    ;(list || []).forEach((f) => { favMap[f.refId] = f.id })
+  } catch (e) { /* 忽略收藏加载失败 */ }
+}
+
+async function toggleFav(c) {
+  try {
+    if (favMap[c.id]) {
+      await removeFavorite(favMap[c.id])
+      delete favMap[c.id]
+      ElMessage.success('已取消收藏')
+    } else {
+      const rec = await addFavorite({ refType: 'COMPETITION', refId: c.id })
+      favMap[c.id] = rec.id
+      ElMessage.success('已收藏')
+    }
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
+}
 
 const loading = ref(false)
 const list = ref([])
@@ -174,7 +216,7 @@ async function onDelete(c) {
   load()
 }
 
-onMounted(load)
+onMounted(() => { load(); loadFavorites() })
 </script>
 
 <style scoped>
@@ -216,6 +258,14 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+.card-ops {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.card-ops .el-icon {
+  margin-right: 2px;
 }
 .pager {
   margin-top: 16px;

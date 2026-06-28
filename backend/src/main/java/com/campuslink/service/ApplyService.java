@@ -45,6 +45,9 @@ public class ApplyService {
     @Lazy
     private final TeamExtraService teamExtraService;
 
+    @Lazy
+    private final TeamEventService teamEventService;
+
     /** 学生提交申请 */
     @Transactional(rollbackFor = Exception.class)
     public void apply(ApplyDTO dto, Long userId) {
@@ -163,15 +166,27 @@ public class ApplyService {
         if (team == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "队伍不存在");
         }
-        if (!team.getLeaderId().equals(operatorId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可查看申请");
-        }
+        requireLeaderOrDeputy(team, operatorId);
         return applyMapper.listByTeam(teamId);
     }
 
     /** 我提交的申请 */
     public List<ApplyVO> listMine(Long userId) {
         return applyMapper.listByUser(userId);
+    }
+
+    /** 队长或副队长（role=LEADER 或 LEADER_DEPUTY）可查看与审核申请 */
+    private void requireLeaderOrDeputy(Team team, Long operatorId) {
+        if (team.getLeaderId().equals(operatorId)) {
+            return;
+        }
+        TeamMember m = teamMemberMapper.selectOne(new LambdaQueryWrapper<TeamMember>()
+                .eq(TeamMember::getTeamId, team.getId())
+                .eq(TeamMember::getUserId, operatorId));
+        if (m != null && ("LEADER".equals(m.getRole()) || "LEADER_DEPUTY".equals(m.getRole()))) {
+            return;
+        }
+        throw new BusinessException(ResultCode.FORBIDDEN, "仅队长或副队长可操作");
     }
 
     /** 队长审核申请 */
@@ -188,9 +203,7 @@ public class ApplyService {
         if (team == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "队伍不存在");
         }
-        if (!team.getLeaderId().equals(operatorId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可审核");
-        }
+        requireLeaderOrDeputy(team, operatorId);
 
         if (Boolean.TRUE.equals(dto.getApproved())) {
             if (team.getCurrentSize() >= team.getTotalSize()) {
@@ -215,6 +228,11 @@ public class ApplyService {
 
             messageService.create(apply.getUserId(), "AUDIT",
                     String.format("你加入队伍「%s」的申请已通过", team.getName()), team.getId());
+
+            // 记录队伍事件：成员加入
+            User applicant = userMapper.selectById(apply.getUserId());
+            String nick = applicant != null ? applicant.getNickname() : "新成员";
+            teamEventService.record(team.getId(), "JOIN", nick + " 加入队伍", operatorId, applyId);
         } else {
             apply.setStatus("REJECTED");
             apply.setRejectReason(dto.getReason());

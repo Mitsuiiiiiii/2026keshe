@@ -13,9 +13,11 @@ import com.campuslink.entity.TeamRecruit;
 import com.campuslink.entity.User;
 import com.campuslink.mapper.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -30,6 +32,9 @@ public class TeamService {
     private final TeamMemberMapper teamMemberMapper;
     private final CompetitionMapper competitionMapper;
     private final UserMapper userMapper;
+
+    @Lazy
+    private final TeamEventService teamEventService;
 
     /** 多维筛选分页 */
     public IPage<TeamListVO> page(TeamQuery query) {
@@ -98,6 +103,9 @@ public class TeamService {
     /** 编辑队伍（仅队长） */
     public Team update(Long id, TeamUpdateDTO dto, Long operatorId) {
         Team team = requireLeader(id, operatorId);
+        if ("ARCHIVED".equals(team.getStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "队伍已归档，不可修改");
+        }
         if (dto.getName() != null) team.setName(dto.getName());
         if (dto.getCompetitionId() != null) team.setCompetitionId(dto.getCompetitionId());
         if (dto.getIntro() != null) team.setIntro(dto.getIntro());
@@ -126,6 +134,42 @@ public class TeamService {
         }
         List<Long> teamIds = members.stream().map(TeamMember::getTeamId).toList();
         return teamMapper.selectBatchIds(teamIds);
+    }
+
+    /** 队长转让：原队长降为成员，新成员升为队长，并更新 team.leaderId */
+    @Transactional(rollbackFor = Exception.class)
+    public void transferLeader(Long teamId, Long newLeaderId, Long operatorId) {
+        Team team = requireLeader(teamId, operatorId);
+        if (newLeaderId == null || newLeaderId.equals(operatorId)) {
+            throw new BusinessException("请选择有效的新队长");
+        }
+        TeamMember newLeader = teamMemberMapper.selectOne(new LambdaQueryWrapper<TeamMember>()
+                .eq(TeamMember::getTeamId, teamId)
+                .eq(TeamMember::getUserId, newLeaderId));
+        if (newLeader == null) {
+            throw new BusinessException("新队长必须是本队成员");
+        }
+        TeamMember oldLeader = teamMemberMapper.selectOne(new LambdaQueryWrapper<TeamMember>()
+                .eq(TeamMember::getTeamId, teamId)
+                .eq(TeamMember::getUserId, operatorId));
+        if (oldLeader != null) {
+            oldLeader.setRole("MEMBER");
+            teamMemberMapper.updateById(oldLeader);
+        }
+        newLeader.setRole("LEADER");
+        teamMemberMapper.updateById(newLeader);
+        team.setLeaderId(newLeaderId);
+        teamMapper.updateById(team);
+    }
+
+    /** 确认比赛结束：归档队伍（仅队长） */
+    @Transactional(rollbackFor = Exception.class)
+    public void archiveTeam(Long teamId, Long operatorId) {
+        Team team = requireLeader(teamId, operatorId);
+        team.setStatus("ARCHIVED");
+        team.setArchivedTime(LocalDateTime.now());
+        teamMapper.updateById(team);
+        teamEventService.record(teamId, "ARCHIVE", "队伍已归档", operatorId, teamId);
     }
 
     private Team requireLeader(Long teamId, Long operatorId) {

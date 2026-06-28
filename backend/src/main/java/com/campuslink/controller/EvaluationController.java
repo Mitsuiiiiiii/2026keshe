@@ -3,6 +3,7 @@ package com.campuslink.controller;
 import com.campuslink.common.Result;
 import com.campuslink.entity.Evaluation;
 import com.campuslink.entity.EvaluationReply;
+import com.campuslink.entity.ReputationLog;
 import com.campuslink.entity.Report;
 import com.campuslink.security.SecurityUtil;
 import com.campuslink.service.EvaluationService;
@@ -31,12 +32,25 @@ public class EvaluationController {
         int resp = ((Number) body.get("responsibility")).intValue();
         int tech = ((Number) body.get("tech")).intValue();
         int comm = ((Number) body.get("communication")).intValue();
-        return Result.success(evaluationService.submit(teamId, SecurityUtil.getUserId(), toUserId, resp, tech, comm));
+        Integer anonymous = body.get("anonymous") == null ? 0 : ((Number) body.get("anonymous")).intValue();
+        return Result.success(evaluationService.submit(teamId, SecurityUtil.getUserId(), toUserId, resp, tech, comm, anonymous));
     }
 
     @GetMapping("/evaluation/user/{userId}")
     public Result<List<Evaluation>> listByUser(@PathVariable Long userId) {
         return Result.success(evaluationService.listByUser(userId));
+    }
+
+    @PutMapping("/evaluation/{id}/anonymous")
+    public Result<Evaluation> toggleAnonymous(@PathVariable("id") Long evalId,
+                                              @RequestBody Map<String, Object> body) {
+        Integer anonymous = body.get("anonymous") == null ? 0 : ((Number) body.get("anonymous")).intValue();
+        return Result.success(evaluationService.toggleAnonymous(evalId, anonymous, SecurityUtil.getUserId()));
+    }
+
+    @GetMapping("/user/{id}/reputation-log")
+    public Result<List<ReputationLog>> reputationLog(@PathVariable("id") Long userId) {
+        return Result.success(evaluationService.reputationLog(userId));
     }
 
     @PostMapping("/evaluation/{id}/reply")

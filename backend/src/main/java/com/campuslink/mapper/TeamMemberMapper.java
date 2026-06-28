@@ -19,7 +19,7 @@ public interface TeamMemberMapper extends BaseMapper<TeamMember> {
      * 查询队伍成员（含用户昵称、头像、专业等）。
      */
     @Select("""
-            SELECT tm.user_id AS userId, u.nickname, u.avatar, u.major, u.grade,
+            SELECT tm.id AS memberId, tm.user_id AS userId, u.nickname, u.avatar, u.major, u.grade,
                    tm.role, tm.join_time AS joinTime
             FROM team_member tm JOIN user u ON u.id = tm.user_id
             WHERE tm.team_id = #{teamId}

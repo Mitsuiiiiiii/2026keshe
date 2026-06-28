@@ -2,11 +2,15 @@ package com.campuslink.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.campuslink.common.Result;
+import com.campuslink.dto.CompetitionAwardDTO;
 import com.campuslink.dto.CompetitionDTO;
+import com.campuslink.dto.CompetitionScheduleDTO;
 import com.campuslink.entity.Competition;
 import com.campuslink.entity.CompetitionAttachment;
+import com.campuslink.entity.CompetitionAward;
 import com.campuslink.entity.CompetitionNews;
 import com.campuslink.entity.CompetitionRegister;
+import com.campuslink.entity.CompetitionSchedule;
 import com.campuslink.security.SecurityUtil;
 import com.campuslink.service.CompetitionExtraService;
 import com.campuslink.service.CompetitionService;
@@ -14,7 +18,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,7 +115,8 @@ public class CompetitionController {
         Long fileId = Long.valueOf(body.get("fileId").toString());
         String name = (String) body.get("name");
         String category = (String) body.getOrDefault("category", "OTHER");
-        return Result.success(competitionExtraService.addAttachment(competitionId, fileId, name, category));
+        return Result.success(competitionExtraService.addAttachment(competitionId, fileId, name, category,
+                SecurityUtil.getUserId(), SecurityUtil.isAdmin()));
     }
 
     @DeleteMapping("/attachment/{attachmentId}")
@@ -138,10 +142,88 @@ public class CompetitionController {
     }
 
     /**
-     * 赛事排行榜。
+     * 赛事排行榜（按 APPROVED 报名数）。
      */
     @GetMapping("/ranking")
     public Result<List<Map<String, Object>>> ranking() {
         return Result.success(competitionExtraService.ranking());
+    }
+
+    // ===================== 赛事日程时间表 =====================
+
+    /**
+     * 发布赛事日程（管理员 / 竞赛创建者）。
+     */
+    @PostMapping("/{id}/schedule")
+    public Result<CompetitionSchedule> addSchedule(@PathVariable("id") Long competitionId,
+                                                   @Valid @RequestBody CompetitionScheduleDTO dto) {
+        return Result.success(competitionExtraService.addSchedule(competitionId, dto,
+                SecurityUtil.getUserId(), SecurityUtil.isAdmin()));
+    }
+
+    /**
+     * 赛事日程列表。
+     */
+    @GetMapping("/{id}/schedule")
+    public Result<List<CompetitionSchedule>> listSchedule(@PathVariable("id") Long competitionId) {
+        return Result.success(competitionExtraService.listSchedules(competitionId));
+    }
+
+    /**
+     * 删除赛事日程（管理员 / 竞赛创建者）。
+     */
+    @DeleteMapping("/schedule/{sid}")
+    public Result<Void> deleteSchedule(@PathVariable("sid") Long scheduleId) {
+        competitionExtraService.deleteSchedule(scheduleId, SecurityUtil.getUserId(), SecurityUtil.isAdmin());
+        return Result.success();
+    }
+
+    // ===================== 获奖公示 =====================
+
+    /**
+     * 发布获奖公示（管理员）。
+     */
+    @PostMapping("/{id}/awards")
+    public Result<CompetitionAward> publishAward(@PathVariable("id") Long competitionId,
+                                                 @Valid @RequestBody CompetitionAwardDTO dto) {
+        if (!SecurityUtil.isAdmin()) {
+            throw new com.campuslink.common.BusinessException(
+                    com.campuslink.common.ResultCode.FORBIDDEN, "仅管理员可发布获奖公示");
+        }
+        return Result.success(competitionExtraService.publishAward(competitionId, dto, SecurityUtil.getUserId()));
+    }
+
+    /**
+     * 按竞赛列出获奖公示。
+     */
+    @GetMapping("/{id}/awards")
+    public Result<List<CompetitionAward>> listAwards(@PathVariable("id") Long competitionId) {
+        return Result.success(competitionExtraService.listAwards(competitionId));
+    }
+
+    /**
+     * 获奖排行榜（按队伍聚合历年获奖数 / 获奖人数）。
+     */
+    @GetMapping("/award/ranking")
+    public Result<List<Map<String, Object>>> awardRanking() {
+        return Result.success(competitionExtraService.awardRanking());
+    }
+
+    /**
+     * 获奖统计（总队伍数 / 总人数 / 按年份、奖项分组）。
+     */
+    @GetMapping("/award/stats")
+    public Result<Map<String, Object>> awardStats() {
+        return Result.success(competitionExtraService.awardStats());
+    }
+
+    // ===================== 我的报名 =====================
+
+    /**
+     * 我的报名：当前用户作为队长的队伍的所有竞赛报名记录及状态。
+     */
+    @GetMapping("/my-registers")
+    public Result<List<Map<String, Object>>> myRegisters() {
+        return Result.success(competitionExtraService.myRegisters(SecurityUtil.getUserId()));
     }
 }

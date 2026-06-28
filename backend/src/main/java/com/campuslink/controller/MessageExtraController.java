@@ -1,6 +1,7 @@
 package com.campuslink.controller;
 
 import com.campuslink.common.Result;
+import com.campuslink.entity.Message;
 import com.campuslink.entity.Notice;
 import com.campuslink.security.SecurityUtil;
 import com.campuslink.service.MessageExtraService;
@@ -75,6 +76,24 @@ public class MessageExtraController {
                                               @RequestParam(defaultValue = "1") long current,
                                               @RequestParam(defaultValue = "10") long size) {
         return Result.success(messageExtraService.search(SecurityUtil.getUserId(), keyword, current, size));
+    }
+
+    /**
+     * 一键私聊（发送私信）。body: receiverId, content。
+     */
+    @PostMapping("/message/private")
+    public Result<Message> sendPrivate(@RequestBody Map<String, Object> body) {
+        Long receiverId = Long.valueOf(body.get("receiverId").toString());
+        String content = (String) body.get("content");
+        return Result.success(messageExtraService.sendPrivate(SecurityUtil.getUserId(), receiverId, content));
+    }
+
+    /**
+     * 查询与某人的私信往来（双向，按时间正序）。
+     */
+    @GetMapping("/message/private")
+    public Result<List<Message>> listPrivate(@RequestParam Long withUserId) {
+        return Result.success(messageExtraService.listPrivate(SecurityUtil.getUserId(), withUserId));
     }
 
     @PostMapping("/notice/schedule")

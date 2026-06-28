@@ -2,6 +2,7 @@ package com.campuslink.controller;
 
 import com.campuslink.common.Result;
 import com.campuslink.entity.TeamBlacklist;
+import com.campuslink.entity.TeamEvent;
 import com.campuslink.entity.TeamFile;
 import com.campuslink.entity.TeamPost;
 import com.campuslink.entity.TeamPostComment;
@@ -93,6 +94,18 @@ public class TeamExtraController {
     @PutMapping("/team-recruit/{id}/top")
     public Result<TeamRecruit> topRecruit(@PathVariable Long id) {
         return Result.success(teamExtraService.topRecruit(id, SecurityUtil.getUserId()));
+    }
+
+    @PutMapping("/team-recruit/{id}/tags")
+    public Result<TeamRecruit> updateRecruitTags(@PathVariable Long id,
+                                                 @RequestBody Map<String, Object> body) {
+        String tags = (String) body.get("tags");
+        return Result.success(teamExtraService.updateRecruitTags(id, tags, SecurityUtil.getUserId()));
+    }
+
+    @GetMapping("/team/{id}/events")
+    public Result<List<TeamEvent>> events(@PathVariable("id") Long teamId) {
+        return Result.success(teamExtraService.listEvents(teamId, SecurityUtil.getUserId()));
     }
 
     /** 拉黑 */

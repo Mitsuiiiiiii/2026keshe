@@ -34,10 +34,13 @@ public class Evaluation {
 
     private Integer communication;
 
-    /** 是否匿名（v2 扩展，原表无此列，仅在 v2 增量脚本里追加；为简单不破坏 v1 SQL，本字段属于 v2 扩展，暂用 0 默认 ） */
-    @TableField(exist = false)
+    /** 是否匿名（0实名/1匿名），对应 evaluation.anonymous 真实列（v3 增量脚本已追加）。 */
     private Integer anonymous;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    /** 评价人展示名（非数据库列）：匿名时为“匿名用户”，实名时为评价人昵称。 */
+    @TableField(exist = false)
+    private String fromUserName;
 }

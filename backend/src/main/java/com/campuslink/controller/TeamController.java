@@ -58,4 +58,18 @@ public class TeamController {
         teamService.delete(id, SecurityUtil.getUserId());
         return Result.success();
     }
+
+    /** 队长转让 */
+    @PutMapping("/{id}/transfer")
+    public Result<Void> transfer(@PathVariable Long id, @RequestParam Long newLeaderId) {
+        teamService.transferLeader(id, newLeaderId, SecurityUtil.getUserId());
+        return Result.success();
+    }
+
+    /** 确认比赛结束（归档队伍） */
+    @PutMapping("/{id}/finish")
+    public Result<Void> finish(@PathVariable Long id) {
+        teamService.archiveTeam(id, SecurityUtil.getUserId());
+        return Result.success();
+    }
 }

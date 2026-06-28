@@ -35,18 +35,92 @@
         <el-table-column label="时间" prop="createTime" />
       </el-table>
     </el-card>
+
+    <el-card class="log-card">
+      <template #header>
+        <div class="log-header">
+          <strong>信誉分变动记录</strong>
+          <el-radio-group v-model="logView" size="small">
+            <el-radio-button label="timeline">时间线</el-radio-button>
+            <el-radio-button label="table">表格</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+
+      <div v-if="logs.length === 0" class="empty">暂无信誉分变动记录</div>
+
+      <el-timeline v-else-if="logView === 'timeline'">
+        <el-timeline-item
+          v-for="log in logs"
+          :key="log.id"
+          :timestamp="log.createTime"
+          placement="top"
+          :type="changeType(log.changeValue)"
+          :hollow="true"
+        >
+          <div class="log-line">
+            <span class="cl-tag" :class="changeType(log.changeValue) === 'success' ? 'success' : 'danger'">
+              {{ formatChange(log.changeValue) }}
+            </span>
+            <span class="log-reason">{{ log.reason || log.sourceType || '信誉分变动' }}</span>
+          </div>
+          <div class="text-muted">
+            {{ log.beforeValue }} → {{ log.afterValue }}
+            <template v-if="log.sourceType">· 来源 {{ log.sourceType }}</template>
+            <template v-if="log.refId">· 关联 #{{ log.refId }}</template>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
+
+      <el-table v-else :data="logs" stripe>
+        <el-table-column label="时间" prop="createTime" width="180" />
+        <el-table-column label="变动" width="100">
+          <template #default="{ row }">
+            <span class="cl-tag" :class="changeType(row.changeValue) === 'success' ? 'success' : 'danger'">
+              {{ formatChange(row.changeValue) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="变动前" prop="beforeValue" width="100" />
+        <el-table-column label="变动后" prop="afterValue" width="100" />
+        <el-table-column label="来源" prop="sourceType" width="100" />
+        <el-table-column label="原因" prop="reason" show-overflow-tooltip />
+        <el-table-column label="关联 id" prop="refId" width="100" />
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getReputationDetail } from '@/api/user'
+import { getReputationDetail, getReputationLog } from '@/api/user'
 import { useUserStore } from '@/store/user'
 
 const userStore = useUserStore()
 const detail = ref({})
+const logs = ref([])
+const logView = ref('timeline')
+
+function formatChange(v) {
+  const n = Number(v ?? 0)
+  return n >= 0 ? `+${n}` : `${n}`
+}
+
+function changeType(v) {
+  return Number(v ?? 0) >= 0 ? 'success' : 'danger'
+}
 
 onMounted(async () => {
-  detail.value = await getReputationDetail(userStore.user.id)
+  const id = userStore.user.id
+  detail.value = await getReputationDetail(id)
+  logs.value = await getReputationLog(id)
 })
 </script>
+
+<style scoped>
+.log-card { margin-top: 16px; }
+.log-header { display: flex; justify-content: space-between; align-items: center; }
+.log-line { display: flex; align-items: center; gap: 8px; }
+.log-reason { font-weight: 600; }
+.empty { padding: 40px; text-align: center; color: var(--cl-text-muted); }
+</style>

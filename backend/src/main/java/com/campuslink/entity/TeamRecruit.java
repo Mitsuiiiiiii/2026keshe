@@ -22,4 +22,10 @@ public class TeamRecruit {
     private Integer count;
 
     private Integer filled;
+
+    /** 招募标签，逗号分隔，供前端高亮 */
+    private String tags;
+
+    /** 是否置顶：0否 1是 */
+    private Integer isTop;
 }

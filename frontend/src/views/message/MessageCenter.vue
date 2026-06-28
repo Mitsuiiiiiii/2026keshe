@@ -17,6 +17,11 @@
       <el-button type="primary" @click="loadData(1)">检索</el-button>
       <el-button @click="markAll">全部已读</el-button>
       <el-button type="danger" plain :disabled="selected.length === 0" @click="batchRemove">批量删除</el-button>
+      <router-link to="/private-chat" class="chat-entry">
+        <el-button type="primary" plain>
+          <el-icon><ChatDotRound /></el-icon> 私信
+        </el-button>
+      </router-link>
     </div>
 
     <el-card>
@@ -36,9 +41,10 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="170">
           <template #default="{ row }">
             <el-button v-if="!row.isRead" text type="primary" @click="onRead(row)">标记已读</el-button>
+            <el-button v-if="row.type === 'PRIVATE'" text type="primary" @click="openChat(row)">回复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -57,9 +63,12 @@
 
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ChatDotRound } from '@element-plus/icons-vue'
 import { listMessages, markRead, markAllRead, batchDeleteMsg, searchMessage } from '@/api/messageExtra'
 
+const router = useRouter()
 const filters = reactive({ type: '', isRead: null })
 const search = ref('')
 const messages = ref([])
@@ -71,11 +80,18 @@ const types = [
   { label: '审核', value: 'AUDIT' },
   { label: '任务', value: 'TASK' },
   { label: '公告', value: 'NOTICE' },
-  { label: '摘要', value: 'DIGEST' }
+  { label: '摘要', value: 'DIGEST' },
+  { label: '私信', value: 'PRIVATE' },
+  { label: '收藏更新', value: 'FAVORITE' }
 ]
 
 function badge(type) {
-  return { APPLY: 'info', AUDIT: 'success', TASK: 'warn', NOTICE: '', DIGEST: '' }[type] || ''
+  return { APPLY: 'info', AUDIT: 'success', TASK: 'warn', NOTICE: '', DIGEST: '', PRIVATE: 'success', FAVORITE: 'warn' }[type] || ''
+}
+
+// PRIVATE 消息 refId 存发送者 id，回复即与该发送者继续会话
+function openChat(row) {
+  router.push({ path: '/private-chat', query: { withUserId: row.refId } })
 }
 
 async function loadData(p = 1) {

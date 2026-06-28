@@ -19,6 +19,9 @@
           <el-menu-item index="/competitions">
             <el-icon><Trophy /></el-icon>竞赛
           </el-menu-item>
+          <el-menu-item index="/competitions/awards">
+            <el-icon><Medal /></el-icon>获奖榜单
+          </el-menu-item>
           <el-menu-item index="/mine">
             <el-icon><Coordinate /></el-icon>我的队伍
           </el-menu-item>
@@ -59,8 +62,11 @@
                 <el-dropdown-item command="profile" :icon="User">个人主页</el-dropdown-item>
                 <el-dropdown-item command="security" :icon="Lock">账号安全</el-dropdown-item>
                 <el-dropdown-item command="applications" :icon="Document">我的申请</el-dropdown-item>
+                <el-dropdown-item command="my-registers" :icon="Document">我的报名</el-dropdown-item>
                 <el-dropdown-item command="favorites" :icon="Star">我的收藏</el-dropdown-item>
+                <el-dropdown-item command="evaluations" :icon="Star">我的评价</el-dropdown-item>
                 <el-dropdown-item command="messages" :icon="Bell">消息中心</el-dropdown-item>
+                <el-dropdown-item command="private-chat" :icon="ChatDotRound">私信</el-dropdown-item>
                 <el-dropdown-item divided command="logout" :icon="SwitchButton">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -79,7 +85,7 @@ import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { unreadCount } from '@/api/messageExtra'
-import { User, Lock, Document, Star, Bell, SwitchButton } from '@element-plus/icons-vue'
+import { User, Lock, Document, Star, Bell, SwitchButton, ChatDotRound } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,8 +122,11 @@ function onCommand(command) {
     profile: '/profile',
     security: '/security',
     applications: '/my-applications',
+    'my-registers': '/competitions/my-registers',
     favorites: '/favorites',
-    messages: '/messages'
+    evaluations: '/evaluations',
+    messages: '/messages',
+    'private-chat': '/private-chat'
   }
   if (command === 'logout') {
     userStore.logout()

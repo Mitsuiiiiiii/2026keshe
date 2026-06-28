@@ -156,6 +156,7 @@ public class UserService {
             privacy.setPushTask(1);
             privacy.setPushNotice(1);
             privacy.setPushEval(1);
+            privacy.setPushFavorite(1);
             privacy.setUpdateTime(LocalDateTime.now());
             privacyMapper.insert(privacy);
             LOGGER.info("隐私设置初始化, userId={}", userId);
@@ -175,6 +176,7 @@ public class UserService {
         if (patch.getPushTask() != null) current.setPushTask(patch.getPushTask());
         if (patch.getPushNotice() != null) current.setPushNotice(patch.getPushNotice());
         if (patch.getPushEval() != null) current.setPushEval(patch.getPushEval());
+        if (patch.getPushFavorite() != null) current.setPushFavorite(patch.getPushFavorite());
         current.setUpdateTime(LocalDateTime.now());
         privacyMapper.updateById(current);
         LOGGER.info("隐私设置已更新, userId={}", userId);

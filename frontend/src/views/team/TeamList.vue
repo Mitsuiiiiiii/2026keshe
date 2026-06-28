@@ -32,11 +32,22 @@
                @click="$router.push(`/teams/${t.id}`)">
         <div class="team-top">
           <span class="team-name">{{ t.name }}</span>
-          <el-tag :type="TEAM_STATUS_TAG[t.status]" size="small">{{ TEAM_STATUS_MAP[t.status] }}</el-tag>
+          <el-tag :type="TEAM_STATUS_TAG[t.status] || 'info'" size="small">
+            {{ TEAM_STATUS_MAP[t.status] || t.status }}
+          </el-tag>
           <el-tag v-if="t.competitionName" type="info" effect="plain" size="small">
             {{ t.competitionName }}
           </el-tag>
           <span class="size-info">{{ t.currentSize }}/{{ t.totalSize }} 人</span>
+          <el-button
+            v-if="userStore.isLogin"
+            class="fav-btn"
+            :type="favoriteMap[t.id] ? 'warning' : 'default'"
+            :icon="favoriteMap[t.id] ? StarFilled : Star"
+            size="small"
+            circle
+            @click.stop="toggleFavorite(t)"
+          />
         </div>
         <p class="team-intro">{{ t.intro || '暂无简介' }}</p>
         <div class="team-foot">
@@ -64,14 +75,21 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { Star, StarFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { pageTeams } from '@/api/team'
 import { pageCompetitions } from '@/api/competition'
+import { listFavorites, addFavorite, removeFavorite } from '@/api/user'
+import { useUserStore } from '@/store/user'
 import { TEAM_STATUS, TEAM_STATUS_MAP, TEAM_STATUS_TAG } from '@/constants'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const competitions = ref([])
+// teamId -> favoriteId
+const favoriteMap = reactive({})
 const query = reactive({
   current: 1,
   size: 10,
@@ -111,10 +129,32 @@ function onPage(p) {
   load()
 }
 
+async function loadFavorites() {
+  if (!userStore.isLogin) return
+  try {
+    const favs = await listFavorites('TEAM')
+    Object.keys(favoriteMap).forEach((k) => delete favoriteMap[k])
+    ;(favs || []).forEach((f) => { favoriteMap[f.refId] = f.id })
+  } catch (e) { /* 忽略收藏加载失败 */ }
+}
+
+async function toggleFavorite(t) {
+  const favId = favoriteMap[t.id]
+  if (favId) {
+    await removeFavorite(favId)
+    delete favoriteMap[t.id]
+    ElMessage.success('已取消收藏')
+  } else {
+    const fav = await addFavorite({ refType: 'TEAM', refId: t.id })
+    favoriteMap[t.id] = fav?.id ?? true
+    ElMessage.success('已收藏')
+  }
+}
+
 onMounted(async () => {
   const data = await pageCompetitions({ current: 1, size: 100 })
   competitions.value = data.records
-  await load()
+  await Promise.all([load(), loadFavorites()])
 })
 </script>
 
@@ -142,6 +182,9 @@ onMounted(async () => {
   margin-left: auto;
   font-size: 13px;
   color: #909399;
+}
+.fav-btn {
+  margin-left: 4px;
 }
 .team-intro {
   color: #606266;

@@ -40,3 +40,6 @@ export const removeFavorite = (id) => request.delete(`/user/me/favorites/${id}`)
 // v2 信誉分
 export const getReputationDetail = (id) => request.get(`/user/${id}/reputation-detail`)
 export const reputationRanking = (limit = 50) => request.get('/reputation/ranking', { params: { limit } })
+
+// v3 信誉分变动记录（时间线/明细）
+export const getReputationLog = (id) => request.get(`/user/${id}/reputation-log`)

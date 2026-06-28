@@ -9,5 +9,13 @@ export const batchRead = (ids) => request.put('/message/batch-read', { ids })
 export const batchDeleteMsg = (ids) => request.delete('/message/batch', { data: { ids } })
 export const searchMessage = (params) => request.get('/message/search', { params })
 
+// 私信
+// 发送私信：body { receiverId, content }
+export const sendPrivate = (receiverId, content) =>
+  request.post('/message/private', { receiverId, content })
+// 查询与某人的往来私信（双向，按时间正序）
+export const listPrivate = (withUserId) =>
+  request.get('/message/private', { params: { withUserId } })
+
 // 定时公告
 export const scheduleNotice = (data) => request.post('/notice/schedule', data)

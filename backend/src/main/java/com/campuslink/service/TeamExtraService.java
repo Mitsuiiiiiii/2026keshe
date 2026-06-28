@@ -54,6 +54,7 @@ public class TeamExtraService {
     private final TeamMapper teamMapper;
     private final TeamRecruitMapper recruitMapper;
     private final MessageService messageService;
+    private final TeamEventService teamEventService;
 
     /** 队伍文件库列表 */
     public List<TeamFile> listFiles(Long teamId, String folder, Long currentUserId) {
@@ -91,18 +92,12 @@ public class TeamExtraService {
         TeamMember member = teamMemberMapper.selectOne(new LambdaQueryWrapper<TeamMember>()
                 .eq(TeamMember::getTeamId, teamFile.getTeamId())
                 .eq(TeamMember::getUserId, currentUserId));
-        if (member == null) {
-            throw new BusinessException(ResultCode.FORBIDDEN);
-        }
-        boolean canDelete = "LEADER".equals(member.getRole()) || "LEADER_DEPUTY".equals(member.getRole())
-                || teamFile.getUploaderId().equals(currentUserId);
-        if (canDelete) {
-            teamFileMapper.deleteById(teamFileId);
-            LOGGER.info("队伍文件已移除, teamFileId={}", teamFileId);
-        } else {
+        if (member == null || !"LEADER".equals(member.getRole())) {
             LOGGER.warn("队伍文件删除权限不足, userId={}, teamFileId={}", currentUserId, teamFileId);
-            throw new BusinessException(ResultCode.FORBIDDEN, "只有队长/副队长/上传者可删除");
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可删除队伍文件");
         }
+        teamFileMapper.deleteById(teamFileId);
+        LOGGER.info("队伍文件已移除, teamFileId={}", teamFileId);
     }
 
     /** 动态墙 */
@@ -126,6 +121,7 @@ public class TeamExtraService {
         post.setCommentCount(0);
         teamPostMapper.insert(post);
         LOGGER.info("动态已发布, postId={}, teamId={}, authorId={}", post.getId(), teamId, authorId);
+        teamEventService.record(teamId, "POST", "发布了新动态", authorId, post.getId());
         return post;
     }
 
@@ -212,8 +208,7 @@ public class TeamExtraService {
         LOGGER.info("队伍已归档, teamId={}", teamId);
     }
 
-    /** 招募置顶（在 team_recruit 表上没有 top 字段，简化为把该岗位 sort 提升；这里直接用 filled 字段不变，
-     *  通过把 count 增 1 模拟置顶不现实，故约定通过单独字段维护——简化实现：把 position 前加 ★。 */
+    /** 招募置顶：使用 team_recruit.is_top 字段（置顶=1），同时清理历史 ★ 前缀。 */
     public TeamRecruit topRecruit(Long recruitId, Long operatorId) {
         TeamRecruit recruit = recruitMapper.selectById(recruitId);
         if (recruit == null) {
@@ -223,13 +218,37 @@ public class TeamExtraService {
         if (team == null || !team.getLeaderId().equals(operatorId)) {
             throw new BusinessException(ResultCode.FORBIDDEN);
         }
-        String position = recruit.getPosition() == null ? "" : recruit.getPosition();
-        if (!position.startsWith("★")) {
-            recruit.setPosition("★ " + position);
-            recruitMapper.updateById(recruit);
-            LOGGER.info("招募已置顶, recruitId={}", recruitId);
+        // 清理历史用 ★ 前缀实现的旧置顶逻辑
+        String position = recruit.getPosition();
+        if (position != null && position.startsWith("★")) {
+            recruit.setPosition(position.replaceFirst("^★\\s*", ""));
         }
+        recruit.setIsTop(1);
+        recruitMapper.updateById(recruit);
+        LOGGER.info("招募已置顶, recruitId={}", recruitId);
         return recruit;
+    }
+
+    /** 更新招募标签（逗号分隔），仅队长可操作。 */
+    public TeamRecruit updateRecruitTags(Long recruitId, String tags, Long operatorId) {
+        TeamRecruit recruit = recruitMapper.selectById(recruitId);
+        if (recruit == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND);
+        }
+        Team team = teamMapper.selectById(recruit.getTeamId());
+        if (team == null || !team.getLeaderId().equals(operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可设置招募标签");
+        }
+        recruit.setTags(tags);
+        recruitMapper.updateById(recruit);
+        LOGGER.info("招募标签已更新, recruitId={}, tags={}", recruitId, tags);
+        return recruit;
+    }
+
+    /** 队伍事件时间线，按时间倒序。 */
+    public List<com.campuslink.entity.TeamEvent> listEvents(Long teamId, Long currentUserId) {
+        ensureMember(teamId, currentUserId);
+        return teamEventService.listByTeam(teamId);
     }
 
     /** 黑名单 */

@@ -42,8 +42,8 @@ public class NoticeService {
         if (team == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "队伍不存在");
         }
-        if (!team.getLeaderId().equals(operatorId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可发布公告");
+        if (!canManage(team, operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长或副队长可发布公告");
         }
 
         Notice notice = new Notice();
@@ -77,6 +77,17 @@ public class NoticeService {
             throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可删除公告");
         }
         noticeMapper.deleteById(id);
+    }
+
+    /** 队长或副队长（role=LEADER 或 LEADER_DEPUTY）可管理 */
+    private boolean canManage(Team team, Long operatorId) {
+        if (team.getLeaderId().equals(operatorId)) {
+            return true;
+        }
+        TeamMember m = teamMemberMapper.selectOne(new LambdaQueryWrapper<TeamMember>()
+                .eq(TeamMember::getTeamId, team.getId())
+                .eq(TeamMember::getUserId, operatorId));
+        return m != null && ("LEADER".equals(m.getRole()) || "LEADER_DEPUTY".equals(m.getRole()));
     }
 
     private void requireMember(Long teamId, Long userId) {

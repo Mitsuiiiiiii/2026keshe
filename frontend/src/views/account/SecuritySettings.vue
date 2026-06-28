@@ -49,6 +49,10 @@
             <span>评价通知</span>
             <el-switch v-model="privacy.pushEval" :active-value="1" :inactive-value="0" />
           </div>
+          <div class="privacy-item">
+            <span>收藏订阅推送<span class="text-muted">（收藏的竞赛/队伍有更新时提醒）</span></span>
+            <el-switch v-model="privacy.pushFavorite" :active-value="1" :inactive-value="0" />
+          </div>
           <el-button type="primary" @click="savePrivacy">保存隐私设置</el-button>
         </div>
       </el-tab-pane>

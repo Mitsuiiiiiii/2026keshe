@@ -15,6 +15,10 @@ export const likePost = (id) => request.post(`/team-post/${id}/like`)
 export const promoteDeputy = (memberId) => request.put(`/team-member/${memberId}/deputy`)
 export const archiveTeam = (id) => request.put(`/team/${id}/archive`)
 export const topRecruit = (id) => request.put(`/team-recruit/${id}/top`)
+export const updateRecruitTags = (id, tags) => request.put(`/team-recruit/${id}/tags`, { tags })
+
+// 队伍事件时间线
+export const listTeamEvents = (id) => request.get(`/team/${id}/events`)
 
 // 黑名单
 export const addBlacklist = (data) => request.post('/team-blacklist', data)

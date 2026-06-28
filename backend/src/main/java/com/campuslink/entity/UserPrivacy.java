@@ -33,5 +33,8 @@ public class UserPrivacy {
 
     private Integer pushEval;
 
+    /** 收藏对象更新推送开关：0关闭/1开启，v3 新增（user_privacy.push_favorite） */
+    private Integer pushFavorite;
+
     private LocalDateTime updateTime;
 }

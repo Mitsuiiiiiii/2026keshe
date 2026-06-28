@@ -10,6 +10,9 @@ import java.time.LocalDateTime;
 @Data
 public class TeamMemberVO {
 
+    /** team_member 行 id，用于任命副队长等成员操作 */
+    private Long memberId;
+
     private Long userId;
 
     private String nickname;
