@@ -1,0 +1,67 @@
+# CampusLink 独立部署栈（与服务器上既有的 walissh 栈完全隔离）
+# 端口规划：前端 8000 / 后端 18080 / MySQL 23306（均为宿主机端口）
+name: campuslink
+
+services:
+  campuslink-mysql:
+    image: mysql:8.0
+    container_name: campuslink-mysql
+    restart: unless-stopped
+    command: >-
+      --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+      --innodb-buffer-pool-size=128M --performance-schema=OFF --max-connections=80
+    environment:
+      MYSQL_ROOT_PASSWORD: campuslink123
+      TZ: Asia/Shanghai
+    volumes:
+      - campuslink-mysql-data:/var/lib/mysql
+      # 首次启动自动建库导数据（按文件名顺序：先 v1 主脚本，后 v2 增量）
+      - ../sql/campuslink.sql:/docker-entrypoint-initdb.d/01-campuslink.sql:ro
+      - ../sql/v2_extension.sql:/docker-entrypoint-initdb.d/02-v2_extension.sql:ro
+    ports:
+      # 仅绑定本机回环，避免 MySQL 暴露公网（如需远程直连请改回 23306:3306 并配置安全组白名单）
+      - "127.0.0.1:23306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pcampuslink123"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  campuslink-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: campuslink-backend:latest
+    container_name: campuslink-backend
+    restart: unless-stopped
+    depends_on:
+      campuslink-mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://campuslink-mysql:3306/campuslink?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: campuslink123
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+      TZ: Asia/Shanghai
+    volumes:
+      - campuslink-uploads:/root/campuslink/uploads
+    ports:
+      # 仅绑定本机回环，后端只通过前端 Nginx 反代对外；本机回环端口供调试用
+      - "127.0.0.1:18080:8080"
+
+  campuslink-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: campuslink-frontend:latest
+    container_name: campuslink-frontend
+    restart: unless-stopped
+    depends_on:
+      - campuslink-backend
+    ports:
+      - "8000:80"
+
+volumes:
+  campuslink-mysql-data:
+  campuslink-uploads:
