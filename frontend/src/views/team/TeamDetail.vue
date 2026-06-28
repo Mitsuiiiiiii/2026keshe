@@ -27,6 +27,10 @@
                        @click="toggleFavorite">
               {{ favoriteId ? '已收藏' : '收藏' }}
             </el-button>
+            <el-button v-if="userStore.isLogin && !isLeader && team.leaderId" type="primary" plain
+                       @click="onChatLeader">
+              <el-icon><ChatDotRound /></el-icon> 私聊队长
+            </el-button>
             <el-button @click="$router.push(`/teams/${team.id}/timeline`)">
               <el-icon><Clock /></el-icon> 时间线
             </el-button>
@@ -99,6 +103,8 @@
               <div v-if="isLeader && !archived && m.role !== 'LEADER'" class="member-ops">
                 <el-button v-if="m.role !== 'LEADER_DEPUTY'" text size="small" type="primary"
                            @click="onPromoteDeputy(m)">任命副队长</el-button>
+                <el-button v-else text size="small" type="info"
+                           @click="onDemoteDeputy(m)">取消副队长</el-button>
                 <el-button text size="small" type="warning"
                            @click="onTransferTo(m)">转让队长</el-button>
               </div>
@@ -191,7 +197,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled } from '@element-plus/icons-vue'
 import { getTeam, updateTeam, deleteTeam, transferLeader, finishTeam } from '@/api/team'
-import { promoteDeputy, topRecruit, updateRecruitTags } from '@/api/teamExtra'
+import { promoteDeputy, demoteDeputy, topRecruit, updateRecruitTags } from '@/api/teamExtra'
 import { pageCompetitions } from '@/api/competition'
 import { submitApply } from '@/api/apply'
 import { listFavorites, addFavorite, removeFavorite } from '@/api/user'
@@ -275,6 +281,19 @@ async function onPromoteDeputy(m) {
   await promoteDeputy(m.memberId ?? m.userId)
   ElMessage.success('已任命副队长')
   load()
+}
+
+// 取消副队长
+async function onDemoteDeputy(m) {
+  await ElMessageBox.confirm(`取消「${m.nickname}」的副队长身份？`, '提示', { type: 'warning' })
+  await demoteDeputy(m.memberId ?? m.userId)
+  ElMessage.success('已取消副队长')
+  load()
+}
+
+// 一键私聊队长
+function onChatLeader() {
+  router.push(`/private-chat?withUserId=${team.value.leaderId}`)
 }
 
 // 确认比赛结束（归档）

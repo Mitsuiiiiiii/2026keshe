@@ -193,6 +193,30 @@ public class TeamExtraService {
                 "您被队长任命为队伍【" + team.getName() + "】的副队长", member.getTeamId());
     }
 
+    /** 取消副队长（降回普通成员，仅队长可操作） */
+    public void demoteDeputy(Long teamMemberId, Long operatorId) {
+        TeamMember member = teamMemberMapper.selectById(teamMemberId);
+        if (member == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND);
+        }
+        Team team = teamMapper.selectById(member.getTeamId());
+        if (team == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND);
+        }
+        if (!team.getLeaderId().equals(operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅队长可取消副队长");
+        }
+        if (!"LEADER_DEPUTY".equals(member.getRole())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该成员不是副队长");
+        }
+        member.setRole("MEMBER");
+        member.setDeputyTime(null);
+        teamMemberMapper.updateById(member);
+        LOGGER.info("副队长已取消, teamId={}, memberId={}", member.getTeamId(), teamMemberId);
+        messageService.create(member.getUserId(), "NOTICE",
+                "您在队伍【" + team.getName() + "】的副队长身份已被取消", member.getTeamId());
+    }
+
     /** 队伍归档 */
     public void archive(Long teamId, Long operatorId) {
         Team team = teamMapper.selectById(teamId);

@@ -103,6 +103,20 @@ public class EvaluationService {
     }
 
     /**
+     * 我发出的评价（不脱敏，便于本人查看并切换匿名）。回填被评价人昵称。
+     */
+    public List<Evaluation> listSent(Long fromUserId) {
+        List<Evaluation> list = evaluationMapper.selectList(new LambdaQueryWrapper<Evaluation>()
+                .eq(Evaluation::getFromUserId, fromUserId)
+                .orderByDesc(Evaluation::getCreateTime));
+        for (Evaluation e : list) {
+            User to = userMapper.selectById(e.getToUserId());
+            e.setToUserName(to == null ? null : to.getNickname());
+        }
+        return list;
+    }
+
+    /**
      * 处理匿名展示：anonymous=1 时隐藏评价人真实身份（fromUserId 置空、fromUserName 显示“匿名用户”），
      * 实名时回填评价人昵称。toUser 不受影响。
      */
@@ -179,13 +193,35 @@ public class EvaluationService {
         double respSum = list.stream().mapToInt(Evaluation::getResponsibility).sum();
         double techSum = list.stream().mapToInt(Evaluation::getTech).sum();
         double commSum = list.stream().mapToInt(Evaluation::getCommunication).sum();
+        double avgResp = respSum / list.size();
+        double avgTech = techSum / list.size();
+        double avgComm = commSum / list.size();
         Map<String, Object> data = new HashMap<>();
         data.put("total", list.size());
-        data.put("avgResponsibility", round(respSum / list.size()));
-        data.put("avgTech", round(techSum / list.size()));
-        data.put("avgCommunication", round(commSum / list.size()));
+        data.put("avgResponsibility", round(avgResp));
+        data.put("avgTech", round(avgTech));
+        data.put("avgCommunication", round(avgComm));
         data.put("items", list);
+
+        // 加权计算明细：当前规则三维等权（各 1/3），透明展示每维加权贡献与最终信誉分
+        double w = 1.0 / 3.0;
+        List<Map<String, Object>> weightDetail = new ArrayList<>();
+        weightDetail.add(weightRow("责任心", round(avgResp), w, round(avgResp * w)));
+        weightDetail.add(weightRow("技术能力", round(avgTech), w, round(avgTech * w)));
+        weightDetail.add(weightRow("沟通能力", round(avgComm), w, round(avgComm * w)));
+        data.put("weightDetail", weightDetail);
+        data.put("weightedScore", round(avgResp * w + avgTech * w + avgComm * w));
+        data.put("formula", "信誉分 = 责任心均分×1/3 + 技术能力均分×1/3 + 沟通能力均分×1/3");
         return data;
+    }
+
+    private Map<String, Object> weightRow(String dim, BigDecimal avg, double weight, BigDecimal contribution) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("dimension", dim);
+        row.put("avg", avg);
+        row.put("weight", round(weight));
+        row.put("contribution", contribution);
+        return row;
     }
 
     /** 信誉分排行榜 */

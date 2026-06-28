@@ -41,6 +41,11 @@ public class EvaluationController {
         return Result.success(evaluationService.listByUser(userId));
     }
 
+    @GetMapping("/evaluation/sent")
+    public Result<List<Evaluation>> listSent() {
+        return Result.success(evaluationService.listSent(SecurityUtil.getUserId()));
+    }
+
     @PutMapping("/evaluation/{id}/anonymous")
     public Result<Evaluation> toggleAnonymous(@PathVariable("id") Long evalId,
                                               @RequestBody Map<String, Object> body) {

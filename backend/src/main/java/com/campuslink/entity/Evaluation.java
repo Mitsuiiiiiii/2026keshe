@@ -43,4 +43,8 @@ public class Evaluation {
     /** 评价人展示名（非数据库列）：匿名时为“匿名用户”，实名时为评价人昵称。 */
     @TableField(exist = false)
     private String fromUserName;
+
+    /** 被评价人展示名（非数据库列），用于“我发出的评价”列表。 */
+    @TableField(exist = false)
+    private String toUserName;
 }

@@ -24,6 +24,24 @@
       </div>
     </div>
 
+    <el-card v-if="detail.weightDetail?.length" class="weight-card">
+      <template #header>
+        <div class="log-header">
+          <strong>加权计算明细</strong>
+          <span v-if="detail.weightedScore != null" class="weighted-score">
+            加权得分 <b>{{ detail.weightedScore }}</b>
+          </span>
+        </div>
+      </template>
+      <el-table :data="detail.weightDetail" stripe>
+        <el-table-column label="维度" prop="dimension" />
+        <el-table-column label="均分" prop="avg" width="120" />
+        <el-table-column label="权重" prop="weight" width="120" />
+        <el-table-column label="加权贡献" prop="contribution" width="140" />
+      </el-table>
+      <div v-if="detail.formula" class="formula">{{ detail.formula }}</div>
+    </el-card>
+
     <el-card>
       <template #header><strong>评价明细</strong></template>
       <el-table :data="detail.items || []" stripe>
@@ -118,6 +136,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.weight-card { margin-top: 16px; }
+.weighted-score { color: var(--cl-text-muted); font-size: 14px; }
+.weighted-score b { color: #f7ba2a; font-size: 20px; margin-left: 4px; }
+.formula { margin-top: 12px; color: var(--cl-text-muted); font-size: 13px; line-height: 1.6; }
 .log-card { margin-top: 16px; }
 .log-header { display: flex; justify-content: space-between; align-items: center; }
 .log-line { display: flex; align-items: center; gap: 8px; }

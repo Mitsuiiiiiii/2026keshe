@@ -85,6 +85,12 @@ public class TeamExtraController {
         return Result.success();
     }
 
+    @DeleteMapping("/team-member/{id}/deputy")
+    public Result<Void> demote(@PathVariable Long id) {
+        teamExtraService.demoteDeputy(id, SecurityUtil.getUserId());
+        return Result.success();
+    }
+
     @PutMapping("/team/{id}/archive")
     public Result<Void> archive(@PathVariable("id") Long teamId) {
         teamExtraService.archive(teamId, SecurityUtil.getUserId());

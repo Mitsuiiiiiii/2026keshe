@@ -6,6 +6,9 @@ export const submit = (data) => request.post('/evaluation', data)
 // 某用户收到的评价列表（匿名评价后端已脱敏：fromUserName=匿名用户）
 export const listByUser = (id) => request.get(`/evaluation/user/${id}`)
 
+// 我发出的评价列表（含 toUserName 被评价人、anonymous、各维度分）
+export const listSent = () => request.get('/evaluation/sent')
+
 // 评价回复
 export const reply = (id, data) => request.post(`/evaluation/${id}/reply`, data)
 export const listReplies = (id) => request.get(`/evaluation/${id}/replies`)

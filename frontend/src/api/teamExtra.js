@@ -13,6 +13,7 @@ export const likePost = (id) => request.post(`/team-post/${id}/like`)
 
 // 副队长 / 归档 / 招募置顶
 export const promoteDeputy = (memberId) => request.put(`/team-member/${memberId}/deputy`)
+export const demoteDeputy = (memberId) => request.delete(`/team-member/${memberId}/deputy`)
 export const archiveTeam = (id) => request.put(`/team/${id}/archive`)
 export const topRecruit = (id) => request.put(`/team-recruit/${id}/top`)
 export const updateRecruitTags = (id, tags) => request.put(`/team-recruit/${id}/tags`, { tags })

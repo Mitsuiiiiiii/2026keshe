@@ -76,6 +76,59 @@
         <el-empty v-else-if="!loading" description="暂无评价" />
       </el-tab-pane>
 
+      <!-- 我发出的评价 -->
+      <el-tab-pane name="sent">
+        <template #label>
+          <span>我发出的评价</span>
+          <el-badge v-if="sentList.length" :value="sentList.length" class="tab-badge" type="info" />
+        </template>
+
+        <div v-if="sentList.length" class="card-list">
+          <el-card v-for="e in sentList" :key="e.id" class="eval-card" shadow="hover">
+            <div class="eval-card-head">
+              <div class="from">
+                <el-avatar :size="36">{{ (e.toUserName || '?').charAt(0) }}</el-avatar>
+                <div class="from-meta">
+                  <span class="from-name">
+                    {{ e.toUserName || '未知用户' }}
+                    <el-tag v-if="e.anonymous === 1" size="small" type="info" effect="plain">匿名</el-tag>
+                    <el-tag v-else size="small" type="success" effect="plain">实名</el-tag>
+                  </span>
+                  <span class="text-muted time">{{ e.createTime }}</span>
+                </div>
+              </div>
+              <div class="avg-score">
+                <span class="avg-num">{{ avgOf(e) }}</span>
+                <span class="text-muted">综合</span>
+              </div>
+            </div>
+
+            <div class="scores">
+              <div class="score-row">
+                <span class="score-label">责任心</span>
+                <el-rate :model-value="e.responsibility" disabled />
+              </div>
+              <div class="score-row">
+                <span class="score-label">技术力</span>
+                <el-rate :model-value="e.tech" disabled />
+              </div>
+              <div class="score-row">
+                <span class="score-label">沟通力</span>
+                <el-rate :model-value="e.communication" disabled />
+              </div>
+            </div>
+
+            <div class="eval-actions">
+              <el-button link type="info" size="small" @click="onToggleAnonymousSent(e)">
+                <el-icon><Switch /></el-icon>
+                {{ e.anonymous === 1 ? '转为实名' : '转为匿名' }}
+              </el-button>
+            </div>
+          </el-card>
+        </div>
+        <el-empty v-else-if="!loading" description="你还没有发出过评价" />
+      </el-tab-pane>
+
       <!-- 我的信誉变动 -->
       <el-tab-pane label="我的信誉变动" name="reputation">
         <el-timeline v-if="repLogs.length" class="rep-timeline">
@@ -159,6 +212,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   listByUser,
+  listSent,
   listReplies,
   reply as replyApi,
   reportEval,
@@ -178,6 +232,7 @@ const isSelf = computed(() => String(targetId.value) === String(currentUserId.va
 const loading = ref(false)
 const activeTab = ref('received')
 const list = ref([])
+const sentList = ref([])
 const repLogs = ref([])
 
 function isMine(e) {
@@ -200,6 +255,15 @@ async function loadEvaluations() {
   loading.value = true
   try {
     list.value = await listByUser(targetId.value)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadSent() {
+  loading.value = true
+  try {
+    sentList.value = await listSent()
   } finally {
     loading.value = false
   }
@@ -291,7 +355,21 @@ async function onToggleAnonymous(e) {
   await loadEvaluations()
 }
 
+// 切换匿名（我发出的评价 tab）
+async function onToggleAnonymousSent(e) {
+  const next = e.anonymous === 1 ? 0 : 1
+  await ElMessageBox.confirm(
+    next === 1 ? '将这条评价转为匿名？被评价人将看不到你的身份。' : '将这条评价转为实名？',
+    '提示',
+    { type: 'warning' }
+  )
+  await toggleAnonymous(e.id, next)
+  ElMessage.success('已更新匿名状态')
+  await loadSent()
+}
+
 watch(activeTab, (tab) => {
+  if (tab === 'sent' && !sentList.value.length) loadSent()
   if (tab === 'reputation' && !repLogs.value.length) loadRepLogs()
 })
 watch(targetId, () => loadEvaluations())
