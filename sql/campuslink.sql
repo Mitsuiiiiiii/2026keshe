@@ -3,6 +3,9 @@
 --  MySQL 8.0 / utf8mb4 / InnoDB
 -- =============================================================
 
+-- 确保导入会话按 UTF-8 解释脚本内容，避免中文双重编码乱码
+SET NAMES utf8mb4;
+
 DROP DATABASE IF EXISTS campuslink;
 CREATE DATABASE campuslink DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE campuslink;
