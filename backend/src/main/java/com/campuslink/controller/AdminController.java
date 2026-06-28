@@ -120,4 +120,28 @@ public class AdminController {
         adminService.deleteSkill(id);
         return Result.success();
     }
+
+    /* ============================ 操作日志 / 异常日志 ============================ */
+
+    @GetMapping("/logs")
+    public Result<Map<String, Object>> logs(@RequestParam(required = false) String keyword,
+                                            @RequestParam(required = false) String method,
+                                            @RequestParam(required = false) String status,
+                                            @RequestParam(defaultValue = "1") long current,
+                                            @RequestParam(defaultValue = "10") long size) {
+        return Result.success(adminService.pageLogs(keyword, method, status, current, size));
+    }
+
+    @GetMapping("/logs/export")
+    public void exportLogs(@RequestParam(required = false) String keyword,
+                           @RequestParam(required = false) String method,
+                           @RequestParam(required = false) String status,
+                           HttpServletResponse response) throws IOException {
+        adminService.exportLogs(keyword, method, status, response);
+    }
+
+    @DeleteMapping("/logs/clean")
+    public Result<Long> cleanLogs(@RequestParam(defaultValue = "30") int beforeDays) {
+        return Result.success(adminService.cleanLogs(beforeDays));
+    }
 }

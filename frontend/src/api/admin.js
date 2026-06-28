@@ -27,6 +27,10 @@ export const adminCreateSkill = (data) => request.post('/admin/skill', data)
 export const adminUpdateSkill = (id, data) => request.put(`/admin/skill/${id}`, data)
 export const adminDeleteSkill = (id) => request.delete(`/admin/skill/${id}`)
 
+// 操作日志 / 异常日志
+export const adminLogs = (params) => request.get('/admin/logs', { params })
+export const adminCleanLogs = (beforeDays) => request.delete('/admin/logs/clean', { params: { beforeDays } })
+
 // 字典
 export const dictByType = (type) => request.get(`/dict/${type}`)
 export const dictAll = () => request.get('/dict/all')

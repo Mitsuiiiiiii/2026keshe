@@ -14,6 +14,7 @@ public enum ResultCode {
     FORBIDDEN(403, "无权限访问"),
     NOT_FOUND(404, "资源不存在"),
     CONFLICT(409, "资源冲突"),
+    TOO_MANY_REQUESTS(429, "操作过于频繁，请稍后再试"),
     ERROR(500, "服务器内部错误"),
 
     //账号安全

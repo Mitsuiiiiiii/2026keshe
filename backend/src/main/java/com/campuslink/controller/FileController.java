@@ -1,5 +1,6 @@
 package com.campuslink.controller;
 
+import com.campuslink.annotation.RateLimit;
 import com.campuslink.common.Result;
 import com.campuslink.entity.FileObject;
 import com.campuslink.security.SecurityUtil;
@@ -41,6 +42,7 @@ public class FileController {
     /**
      * 通用上传接口。
      */
+    @RateLimit(period = 60, count = 30, perUser = true, message = "上传过于频繁，请稍后再试")
     @PostMapping("/upload")
     public Result<Map<String, Object>> upload(@RequestParam("file") MultipartFile file,
                                               @RequestParam(value = "scope", required = false, defaultValue = "USER") String scope,

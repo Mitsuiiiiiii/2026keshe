@@ -9,6 +9,7 @@ import com.campuslink.common.PageResult;
 import com.campuslink.common.ResultCode;
 import com.campuslink.entity.Apply;
 import com.campuslink.entity.Competition;
+import com.campuslink.entity.OperationLog;
 import com.campuslink.entity.Report;
 import com.campuslink.entity.Skill;
 import com.campuslink.entity.SystemNotice;
@@ -17,6 +18,7 @@ import com.campuslink.entity.Team;
 import com.campuslink.entity.User;
 import com.campuslink.mapper.ApplyMapper;
 import com.campuslink.mapper.CompetitionMapper;
+import com.campuslink.mapper.OperationLogMapper;
 import com.campuslink.mapper.ReportMapper;
 import com.campuslink.mapper.SkillMapper;
 import com.campuslink.mapper.SystemNoticeMapper;
@@ -57,6 +59,7 @@ public class AdminService {
     private final ReportMapper reportMapper;
     private final SkillMapper skillMapper;
     private final SystemNoticeMapper systemNoticeMapper;
+    private final OperationLogMapper operationLogMapper;
     private final PasswordEncoder passwordEncoder;
 
     /** 用户列表 */
@@ -225,5 +228,80 @@ public class AdminService {
 
     public void deleteSkill(Long id) {
         skillMapper.deleteById(id);
+    }
+
+    /* ============================ 操作日志 / 异常日志 ============================ */
+
+    /**
+     * 分页查询操作日志，支持按操作人、HTTP 方法、状态(SUCCESS/FAIL)、路径关键字过滤。
+     */
+    public Map<String, Object> pageLogs(String keyword, String method, String status,
+                                        long current, long size) {
+        LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<OperationLog>()
+                .orderByDesc(OperationLog::getCreateTime);
+        if (keyword != null && !keyword.isBlank()) {
+            wrapper.and(w -> w.like(OperationLog::getUsername, keyword)
+                    .or().like(OperationLog::getPath, keyword));
+        }
+        if (method != null && !method.isBlank()) {
+            wrapper.eq(OperationLog::getMethod, method.toUpperCase());
+        }
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(OperationLog::getStatus, status.toUpperCase());
+        }
+        Page<OperationLog> page = operationLogMapper.selectPage(new Page<>(current, size), wrapper);
+        return PageResult.wrap(page);
+    }
+
+    /**
+     * 导出操作日志为 Excel（默认导出最近 5000 条，避免内存溢出）。
+     */
+    public void exportLogs(String keyword, String method, String status,
+                           HttpServletResponse response) throws IOException {
+        LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<OperationLog>()
+                .orderByDesc(OperationLog::getCreateTime).last("limit 5000");
+        if (keyword != null && !keyword.isBlank()) {
+            wrapper.and(w -> w.like(OperationLog::getUsername, keyword)
+                    .or().like(OperationLog::getPath, keyword));
+        }
+        if (method != null && !method.isBlank()) {
+            wrapper.eq(OperationLog::getMethod, method.toUpperCase());
+        }
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(OperationLog::getStatus, status.toUpperCase());
+        }
+        List<OperationLog> logs = operationLogMapper.selectList(wrapper);
+        List<List<Object>> rows = new ArrayList<>();
+        for (OperationLog l : logs) {
+            List<Object> row = new ArrayList<>();
+            row.add(l.getId());
+            row.add(l.getUsername());
+            row.add(l.getMethod());
+            row.add(l.getPath());
+            row.add(l.getStatus());
+            row.add(l.getIp());
+            row.add(l.getCostMs());
+            row.add(l.getErrorMsg());
+            row.add(l.getParams());
+            row.add(l.getCreateTime() == null ? "" : l.getCreateTime().toString());
+            rows.add(row);
+        }
+        ExcelExportUtil.writeXlsx(response, "operation-log-export",
+                List.of("ID", "操作人", "方法", "路径", "状态", "IP", "耗时(ms)", "错误信息", "入参", "时间"),
+                rows);
+        LOGGER.info("[ADMIN] 操作日志已导出, 数量={}", logs.size());
+    }
+
+    /**
+     * 清理指定天数之前的操作日志，返回删除条数。
+     */
+    public long cleanLogs(int beforeDays) {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(Math.max(beforeDays, 1));
+        long before = operationLogMapper.selectCount(new LambdaQueryWrapper<OperationLog>()
+                .lt(OperationLog::getCreateTime, threshold));
+        operationLogMapper.delete(new LambdaQueryWrapper<OperationLog>()
+                .lt(OperationLog::getCreateTime, threshold));
+        LOGGER.info("[ADMIN] 清理操作日志, 阈值={}, 删除={}", threshold, before);
+        return before;
     }
 }
