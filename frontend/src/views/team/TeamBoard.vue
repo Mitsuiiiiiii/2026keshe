@@ -40,7 +40,16 @@
         >
           <template #item="{ element }">
             <div class="task-card" @click="openEdit(element)">
-              <div class="task-title">{{ element.title }}</div>
+              <div class="task-title-row">
+                <el-tag :type="priorityTag(element.priority)" size="small" effect="dark" class="prio-tag">
+                  {{ priorityLabel(element.priority) }}
+                </el-tag>
+                <span class="task-title">{{ element.title }}</span>
+              </div>
+              <div v-if="element.tags" class="task-tags">
+                <el-tag v-for="t in element.tags.split(',').filter(Boolean)" :key="t"
+                        size="small" effect="plain" class="tg">{{ t.trim() }}</el-tag>
+              </div>
               <div v-if="element.description" class="task-desc">{{ element.description }}</div>
               <div class="task-foot">
                 <span v-if="element.assigneeName" class="assignee">
@@ -58,10 +67,20 @@
     </div>
 
     <!-- 任务新建 / 编辑 -->
-    <el-dialog v-model="dialog" :title="editing ? '编辑任务' : '新建任务'" width="500px">
+    <el-dialog v-model="dialog" :title="editing ? '编辑任务' : '新建任务'" width="620px">
       <el-form :model="form" label-width="72px">
         <el-form-item label="标题">
           <el-input v-model="form.title" placeholder="任务标题" />
+        </el-form-item>
+        <el-form-item label="优先级">
+          <el-radio-group v-model="form.priority">
+            <el-radio-button value="LOW">低</el-radio-button>
+            <el-radio-button value="MEDIUM">中</el-radio-button>
+            <el-radio-button value="HIGH">高</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="form.tags" placeholder="多个标签用逗号分隔，如：前端,紧急" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" type="textarea" :rows="3" />
@@ -76,6 +95,41 @@
                           value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
         </el-form-item>
       </el-form>
+
+      <!-- 子任务 / 评论：仅编辑已存在任务时显示 -->
+      <template v-if="editing">
+        <el-divider content-position="left">子任务（{{ subtasks.length }}）</el-divider>
+        <div class="sub-list">
+          <div v-for="s in subtasks" :key="s.id" class="sub-row">
+            <el-checkbox :model-value="s.status === 'DONE'"
+                         @change="(v) => toggleSubtask(s, v)" />
+            <span :class="{ 'sub-done': s.status === 'DONE' }">{{ s.title }}</span>
+            <span v-if="s.assigneeName" class="text-muted sub-assignee">@{{ s.assigneeName }}</span>
+          </div>
+          <el-empty v-if="!subtasks.length" description="暂无子任务" :image-size="48" />
+        </div>
+        <div class="sub-add">
+          <el-input v-model="newSubtask" placeholder="新增子任务标题" @keyup.enter="addSub" />
+          <el-button type="primary" @click="addSub">添加</el-button>
+        </div>
+
+        <el-divider content-position="left">评论沟通（{{ comments.length }}）</el-divider>
+        <div class="comment-list">
+          <div v-for="c in comments" :key="c.id" class="comment-row">
+            <div class="comment-meta">
+              <span class="comment-author">{{ memberName(c.authorId) }}</span>
+              <span class="text-muted">{{ c.createTime }}</span>
+            </div>
+            <div class="comment-content">{{ c.content }}</div>
+          </div>
+          <el-empty v-if="!comments.length" description="还没有评论" :image-size="48" />
+        </div>
+        <div class="sub-add">
+          <el-input v-model="newComment" placeholder="写下你的评论…" @keyup.enter="addComment" />
+          <el-button type="primary" @click="addComment">发送</el-button>
+        </div>
+      </template>
+
       <template #footer>
         <el-button v-if="editing" type="danger" plain style="float: left" @click="onDelete">删除</el-button>
         <el-button @click="dialog = false">取消</el-button>
@@ -94,9 +148,19 @@ import { getTeam } from '@/api/team'
 import {
   listTeamTasks, taskStat, createTask, updateTask, updateTaskStatus, deleteTask
 } from '@/api/task'
+import {
+  listSubtasks, createSubtask, updateSubtaskStatus,
+  listTaskComments, commentTask
+} from '@/api/taskExtra'
 
 const route = useRoute()
 const teamId = route.params.id
+
+const PRIORITY_LABEL = { LOW: '低', MEDIUM: '中', HIGH: '高' }
+const PRIORITY_TAG = { LOW: 'info', MEDIUM: 'warning', HIGH: 'danger' }
+const priorityLabel = (p) => PRIORITY_LABEL[p] || '中'
+const priorityTag = (p) => PRIORITY_TAG[p] || 'warning'
+const memberName = (id) => members.value.find((m) => m.userId === id)?.nickname || ('用户 #' + id)
 
 const loading = ref(false)
 const members = ref([])
@@ -124,7 +188,13 @@ function pct(v) {
 const dialog = ref(false)
 const editing = ref(false)
 const saving = ref(false)
-const form = reactive({ id: null, title: '', description: '', assigneeId: null, deadline: null })
+const form = reactive({ id: null, title: '', description: '', assigneeId: null, deadline: null, priority: 'MEDIUM', tags: '' })
+
+// 子任务 / 评论
+const subtasks = ref([])
+const comments = ref([])
+const newSubtask = ref('')
+const newComment = ref('')
 
 async function loadTasks() {
   const tasks = await listTeamTasks(teamId)
@@ -149,20 +219,53 @@ async function onChange(evt, status) {
 
 function openCreate() {
   editing.value = false
-  Object.assign(form, { id: null, title: '', description: '', assigneeId: null, deadline: null })
+  subtasks.value = []
+  comments.value = []
+  Object.assign(form, { id: null, title: '', description: '', assigneeId: null, deadline: null, priority: 'MEDIUM', tags: '' })
   dialog.value = true
 }
 
-function openEdit(task) {
+async function openEdit(task) {
   editing.value = true
   Object.assign(form, {
     id: task.id,
     title: task.title,
     description: task.description,
     assigneeId: task.assigneeId,
-    deadline: task.deadline
+    deadline: task.deadline,
+    priority: task.priority || 'MEDIUM',
+    tags: task.tags || ''
   })
   dialog.value = true
+  await loadSubtasksAndComments(task.id)
+}
+
+async function loadSubtasksAndComments(taskId) {
+  subtasks.value = []
+  comments.value = []
+  try {
+    subtasks.value = await listSubtasks(taskId)
+    comments.value = await listTaskComments(taskId)
+  } catch { /* 忽略加载失败 */ }
+}
+
+async function addSub() {
+  if (!newSubtask.value.trim()) return
+  await createSubtask({ parentId: form.id, title: newSubtask.value.trim() })
+  newSubtask.value = ''
+  subtasks.value = await listSubtasks(form.id)
+}
+
+async function toggleSubtask(s, checked) {
+  await updateSubtaskStatus(s.id, { status: checked ? 'DONE' : 'TODO' })
+  subtasks.value = await listSubtasks(form.id)
+}
+
+async function addComment() {
+  if (!newComment.value.trim()) return
+  await commentTask(form.id, { content: newComment.value.trim() })
+  newComment.value = ''
+  comments.value = await listTaskComments(form.id)
 }
 
 async function save() {
@@ -297,9 +400,72 @@ onMounted(async () => {
 .task-card:active {
   cursor: grabbing;
 }
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
 .task-title {
   font-weight: 500;
+}
+.prio-tag {
+  flex-shrink: 0;
+}
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-bottom: 6px;
+}
+.task-tags .tg {
+  font-size: 11px;
+}
+.sub-list {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.sub-done {
+  text-decoration: line-through;
+  color: #909399;
+}
+.sub-assignee {
+  font-size: 12px;
+}
+.sub-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.comment-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.comment-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed #ebeef5;
+}
+.comment-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.comment-author {
+  font-weight: 600;
+}
+.comment-content {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #303133;
 }
 .task-desc {
   font-size: 12px;

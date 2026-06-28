@@ -6,6 +6,9 @@
         <div class="profile-meta">
           <div class="name-line">
             <span class="nickname">{{ user.nickname }}</span>
+            <el-tag type="info" size="small" effect="plain" class="uid-tag" @click="copyId">
+              ID: {{ user.id }} <el-icon class="copy-ic"><CopyDocument /></el-icon>
+            </el-tag>
             <el-tag v-if="user.role === 'ADMIN'" type="danger" size="small">管理员</el-tag>
             <span class="reputation">
               <el-icon color="#f7ba2a"><StarFilled /></el-icon>
@@ -18,7 +21,17 @@
           </div>
           <div class="text-muted">{{ user.email || '未填写邮箱' }}</div>
         </div>
-        <el-button v-if="isSelf" type="primary" plain @click="openEdit">编辑资料</el-button>
+        <div class="head-ops">
+          <el-button v-if="isSelf" type="primary" plain @click="openEdit">编辑资料</el-button>
+          <template v-else>
+            <el-button type="primary" @click="$router.push(`/private-chat?withUserId=${user.id}`)">
+              <el-icon><ChatDotRound /></el-icon> 发私信
+            </el-button>
+            <el-button plain @click="$router.push(`/evaluations?userId=${user.id}`)">
+              <el-icon><Star /></el-icon> TA的评价
+            </el-button>
+          </template>
+        </div>
       </div>
 
       <el-divider content-position="left">技能标签</el-divider>
@@ -84,6 +97,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { CopyDocument, ChatDotRound, Star } from '@element-plus/icons-vue'
 import { getMe, getUser, updateProfile, getMySkills, getUserSkills, addSkill, removeSkill } from '@/api/user'
 import { listSkills } from '@/api/skill'
 import { useUserStore } from '@/store/user'
@@ -165,6 +179,15 @@ async function onRemoveSkill(id) {
   skills.value = await getMySkills()
 }
 
+async function copyId() {
+  try {
+    await navigator.clipboard.writeText(String(user.value.id))
+    ElMessage.success(`已复制 ID：${user.value.id}`)
+  } catch {
+    ElMessage.info(`用户 ID：${user.value.id}`)
+  }
+}
+
 onMounted(async () => {
   allSkills.value = await listSkills()
   await load()
@@ -195,6 +218,20 @@ watch(() => route.params.id, load)
 .nickname {
   font-size: 22px;
   font-weight: 600;
+}
+.uid-tag {
+  cursor: pointer;
+  font-family: monospace;
+}
+.copy-ic {
+  font-size: 12px;
+  vertical-align: -1px;
+}
+.head-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-start;
 }
 .reputation {
   display: inline-flex;

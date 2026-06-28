@@ -26,6 +26,15 @@ public class TaskVO {
 
     private String status;
 
+    /** LOW / MEDIUM / HIGH，v2 任务优先级 */
+    private String priority;
+
+    /** 逗号分隔标签，v2 */
+    private String tags;
+
+    /** 父任务 id，主任务为 null */
+    private Long parentId;
+
     private Integer sortOrder;
 
     private LocalDateTime createTime;

@@ -32,9 +32,14 @@
             拒绝理由：{{ a.rejectReason }}
           </p>
         </div>
-        <div v-if="a.status === 'PENDING'" class="apply-ops">
-          <el-button type="success" @click="onApprove(a)">通过</el-button>
-          <el-button type="danger" plain @click="onReject(a)">拒绝</el-button>
+        <div class="apply-ops">
+          <template v-if="a.status === 'PENDING'">
+            <el-button type="success" @click="onApprove(a)">通过</el-button>
+            <el-button type="danger" plain @click="onReject(a)">拒绝</el-button>
+          </template>
+          <el-button type="warning" plain @click="onBlacklist(a)">
+            <el-icon><CircleClose /></el-icon> 拉黑
+          </el-button>
         </div>
       </el-card>
     </div>
@@ -46,7 +51,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { CircleClose } from '@element-plus/icons-vue'
 import { listTeamApplies, auditApply } from '@/api/apply'
+import { addBlacklist } from '@/api/teamExtra'
 
 const route = useRoute()
 const teamId = route.params.id
@@ -91,6 +98,16 @@ async function onReject(a) {
   await auditApply(a.id, { approved: false, reason: value })
   ElMessage.success('已拒绝')
   load()
+}
+
+async function onBlacklist(a) {
+  const { value } = await ElMessageBox.prompt(
+    `将「${a.nickname}」加入队伍黑名单后，对方将无法再次申请。请输入拉黑原因（可选）`,
+    '加入黑名单',
+    { confirmButtonText: '确认拉黑', cancelButtonText: '取消', inputType: 'textarea' }
+  )
+  await addBlacklist({ teamId, userId: a.userId, reason: value || '恶意申请' })
+  ElMessage.success('已加入黑名单')
 }
 
 onMounted(load)

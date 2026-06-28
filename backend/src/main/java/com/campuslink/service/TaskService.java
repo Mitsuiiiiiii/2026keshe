@@ -51,6 +51,8 @@ public class TaskService {
         task.setAssigneeId(dto.getAssigneeId());
         task.setDeadline(dto.getDeadline());
         task.setStatus("TODO");
+        task.setPriority(dto.getPriority() == null || dto.getPriority().isBlank() ? "MEDIUM" : dto.getPriority());
+        task.setTags(dto.getTags());
         task.setSortOrder(0);
         taskMapper.insert(task);
 
@@ -69,6 +71,8 @@ public class TaskService {
         if (dto.getTitle() != null) task.setTitle(dto.getTitle());
         if (dto.getDescription() != null) task.setDescription(dto.getDescription());
         if (dto.getDeadline() != null) task.setDeadline(dto.getDeadline());
+        if (dto.getPriority() != null && !dto.getPriority().isBlank()) task.setPriority(dto.getPriority());
+        if (dto.getTags() != null) task.setTags(dto.getTags());
         task.setAssigneeId(dto.getAssigneeId());
         taskMapper.updateById(task);
 
@@ -108,7 +112,7 @@ public class TaskService {
     public TaskStatVO stat(Long teamId, Long operatorId) {
         requireMember(teamId, operatorId);
         List<Task> tasks = taskMapper.selectList(
-                new LambdaQueryWrapper<Task>().eq(Task::getTeamId, teamId));
+                new LambdaQueryWrapper<Task>().eq(Task::getTeamId, teamId).isNull(Task::getParentId));
         TaskStatVO vo = new TaskStatVO();
         vo.setTodo(tasks.stream().filter(t -> "TODO".equals(t.getStatus())).count());
         vo.setDoing(tasks.stream().filter(t -> "DOING".equals(t.getStatus())).count());

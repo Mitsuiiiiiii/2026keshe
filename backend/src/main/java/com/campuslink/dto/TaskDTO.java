@@ -23,4 +23,10 @@ public class TaskDTO {
     private Long assigneeId;
 
     private LocalDateTime deadline;
+
+    /** LOW / MEDIUM / HIGH，留空默认 MEDIUM */
+    private String priority;
+
+    /** 逗号分隔标签 */
+    private String tags;
 }

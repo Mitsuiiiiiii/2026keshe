@@ -31,15 +31,6 @@
                        @click="onChatLeader">
               <el-icon><ChatDotRound /></el-icon> 私聊队长
             </el-button>
-            <el-button @click="$router.push(`/teams/${team.id}/timeline`)">
-              <el-icon><Clock /></el-icon> 时间线
-            </el-button>
-            <el-button v-if="isMember || isLeader" @click="$router.push(`/teams/${team.id}/board`)">
-              <el-icon><Grid /></el-icon> 任务看板
-            </el-button>
-            <el-button v-if="isMember || isLeader" @click="$router.push(`/teams/${team.id}/notices`)">
-              <el-icon><Bell /></el-icon> 公告
-            </el-button>
             <template v-if="isLeader && !archived">
               <el-button type="primary" @click="$router.push(`/teams/${team.id}/applies`)">
                 申请管理
@@ -54,6 +45,41 @@
             <el-tag v-else-if="isMember" type="success" size="large">已加入</el-tag>
           </div>
         </div>
+
+        <!-- 队伍功能导航 -->
+        <div v-if="isMember || isLeader" class="feature-bar">
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/posts`)">
+            <el-icon><ChatLineSquare /></el-icon> 动态·时间线
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/board`)">
+            <el-icon><Grid /></el-icon> 任务看板
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/gantt`)">
+            <el-icon><Calendar /></el-icon> 甘特图
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/worklog`)">
+            <el-icon><Timer /></el-icon> 工时填报
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/files`)">
+            <el-icon><Folder /></el-icon> 文件库
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/notices`)">
+            <el-icon><Bell /></el-icon> 公告
+          </el-button>
+          <el-button class="feat" @click="$router.push(`/teams/${team.id}/stat`)">
+            <el-icon><DataLine /></el-icon> 队伍统计
+          </el-button>
+          <el-button class="feat" type="success" plain @click="openEvaluate">
+            <el-icon><Star /></el-icon> 队内互评
+          </el-button>
+          <el-button v-if="isLeader" class="feat" type="warning" plain
+                     @click="$router.push(`/teams/${team.id}/blacklist`)">
+            <el-icon><CircleClose /></el-icon> 黑名单
+          </el-button>
+        </div>
+
+        <el-alert v-if="archived" type="success" :closable="false" show-icon class="archive-tip"
+                  title="比赛已结束并归档：可对队友进行最终互评，沉淀本次组队的协作评价。" />
 
         <el-divider content-position="left">队伍简介</el-divider>
         <p class="intro">{{ team.intro || '暂无简介' }}</p>
@@ -188,6 +214,34 @@
         <el-button type="primary" :loading="tagsSaving" @click="doSaveTags">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 队内互评 / 评分 -->
+    <el-dialog v-model="evalDialog" title="队内互评 · 评分" width="520px">
+      <el-form label-width="84px">
+        <el-form-item label="评价对象">
+          <el-select v-model="evalForm.toUserId" placeholder="选择队友" style="width: 100%">
+            <el-option v-for="m in evalCandidates" :key="m.userId"
+                       :label="m.nickname" :value="m.userId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="责任心">
+          <el-rate v-model="evalForm.responsibility" :max="5" show-score />
+        </el-form-item>
+        <el-form-item label="技术力">
+          <el-rate v-model="evalForm.tech" :max="5" show-score />
+        </el-form-item>
+        <el-form-item label="沟通力">
+          <el-rate v-model="evalForm.communication" :max="5" show-score />
+        </el-form-item>
+        <el-form-item label="匿名评价">
+          <el-switch v-model="evalForm.anonymous" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="evalDialog = false">取消</el-button>
+        <el-button type="primary" :loading="evalSaving" @click="doEvaluate">提交评分</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -195,9 +249,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Star, StarFilled } from '@element-plus/icons-vue'
+import {
+  Star, StarFilled, ChatLineSquare, Grid, Calendar, Timer, Folder, Bell,
+  DataLine, CircleClose
+} from '@element-plus/icons-vue'
 import { getTeam, updateTeam, deleteTeam, transferLeader, finishTeam } from '@/api/team'
 import { promoteDeputy, demoteDeputy, topRecruit, updateRecruitTags } from '@/api/teamExtra'
+import { submit as submitEvaluation } from '@/api/evaluation'
 import { pageCompetitions } from '@/api/competition'
 import { submitApply } from '@/api/apply'
 import { listFavorites, addFavorite, removeFavorite } from '@/api/user'
@@ -330,6 +388,37 @@ async function doSaveTags() {
   }
 }
 
+// 队内互评 / 评分
+const evalDialog = ref(false)
+const evalSaving = ref(false)
+const evalForm = reactive({ toUserId: null, responsibility: 5, tech: 5, communication: 5, anonymous: false })
+const evalCandidates = computed(() =>
+  (detail.value?.members || []).filter((m) => m.userId !== userStore.user?.id)
+)
+function openEvaluate() {
+  if (!evalCandidates.value.length) { ElMessage.warning('暂无可评价的队友'); return }
+  Object.assign(evalForm, { toUserId: null, responsibility: 5, tech: 5, communication: 5, anonymous: false })
+  evalDialog.value = true
+}
+async function doEvaluate() {
+  if (!evalForm.toUserId) { ElMessage.warning('请选择评价对象'); return }
+  evalSaving.value = true
+  try {
+    await submitEvaluation({
+      teamId: team.value.id,
+      toUserId: evalForm.toUserId,
+      responsibility: evalForm.responsibility,
+      tech: evalForm.tech,
+      communication: evalForm.communication,
+      anonymous: evalForm.anonymous ? 1 : 0
+    })
+    ElMessage.success('评分已提交')
+    evalDialog.value = false
+  } finally {
+    evalSaving.value = false
+  }
+}
+
 const applyDialog = ref(false)
 const applying = ref(false)
 const applyForm = reactive({ selfIntro: '', skillDesc: '', profileLink: '' })
@@ -413,6 +502,21 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+}
+.feature-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 4px;
+  padding: 14px 16px;
+  background: var(--cl-primary-soft);
+  border-radius: var(--cl-radius);
+}
+.feature-bar .feat {
+  border-radius: 10px;
+}
+.archive-tip {
+  margin: 12px 0;
 }
 .title-line {
   display: flex;

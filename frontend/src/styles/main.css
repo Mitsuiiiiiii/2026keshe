@@ -233,9 +233,30 @@ a {
   border-color: var(--cl-primary) !important;
 }
 
-.el-button--primary:hover {
-  background: var(--cl-primary-light) !important;
-  border-color: var(--cl-primary-light) !important;
+/* hover 用更深的主色，保证白字对比度（原来用浅色导致白字看不清） */
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: #4338ca !important;
+  border-color: #4338ca !important;
+}
+
+/* === 实心彩色按钮文字一律白色（修复“蓝色按钮文字看不清”） === */
+.el-button--primary:not(.is-plain):not(.is-text):not(.is-link),
+.el-button--success:not(.is-plain):not(.is-text):not(.is-link),
+.el-button--warning:not(.is-plain):not(.is-text):not(.is-link),
+.el-button--danger:not(.is-plain):not(.is-text):not(.is-link),
+.el-button--primary:not(.is-plain):not(.is-text):not(.is-link):hover,
+.el-button--success:not(.is-plain):not(.is-text):not(.is-link):hover,
+.el-button--warning:not(.is-plain):not(.is-text):not(.is-link):hover,
+.el-button--danger:not(.is-plain):not(.is-text):not(.is-link):hover {
+  color: #fff !important;
+}
+
+/* 渐变 hero 按钮文字始终白色 */
+.cl-btn-hero,
+.cl-btn-hero:hover,
+.cl-btn-hero:focus {
+  color: #fff !important;
 }
 
 .el-card {
