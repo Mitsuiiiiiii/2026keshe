@@ -202,6 +202,32 @@ public class CompetitionController {
     }
 
     /**
+     * 列出全部获奖公示（管理员后台管理用）。
+     */
+    @GetMapping("/awards/all")
+    public Result<List<CompetitionAward>> listAllAwards() {
+        return Result.success(competitionExtraService.listAllAwards());
+    }
+
+    /**
+     * 更新获奖公示（管理员）。
+     */
+    @PutMapping("/awards/{awardId}")
+    public Result<CompetitionAward> updateAward(@PathVariable("awardId") Long awardId,
+                                                @RequestBody CompetitionAwardDTO dto) {
+        return Result.success(competitionExtraService.updateAward(awardId, dto, SecurityUtil.isAdmin()));
+    }
+
+    /**
+     * 删除获奖公示（管理员）。
+     */
+    @DeleteMapping("/awards/{awardId}")
+    public Result<Void> deleteAward(@PathVariable("awardId") Long awardId) {
+        competitionExtraService.deleteAward(awardId, SecurityUtil.isAdmin());
+        return Result.success();
+    }
+
+    /**
      * 获奖排行榜（按队伍聚合历年获奖数 / 获奖人数）。
      */
     @GetMapping("/award/ranking")

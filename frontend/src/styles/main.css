@@ -228,14 +228,15 @@ a {
   font-weight: 500;
 }
 
-.el-button--primary {
+/* 仅实心 primary 按钮才铺主色背景；text/link/plain 不加背景，否则文字按钮会出现靛蓝字+靛蓝底看不见 */
+.el-button--primary:not(.is-text):not(.is-link):not(.is-plain) {
   background: var(--cl-primary) !important;
   border-color: var(--cl-primary) !important;
 }
 
 /* hover 用更深的主色，保证白字对比度（原来用浅色导致白字看不清） */
-.el-button--primary:hover,
-.el-button--primary:focus {
+.el-button--primary:not(.is-text):not(.is-link):not(.is-plain):hover,
+.el-button--primary:not(.is-text):not(.is-link):not(.is-plain):focus {
   background: #4338ca !important;
   border-color: #4338ca !important;
 }

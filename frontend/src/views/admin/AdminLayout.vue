@@ -9,6 +9,7 @@
         <el-menu-item index="/admin/reports"><el-icon><Warning /></el-icon> 举报处理</el-menu-item>
         <el-menu-item index="/admin/skill"><el-icon><Star /></el-icon> 技能标签</el-menu-item>
         <el-menu-item index="/admin/notice"><el-icon><Bell /></el-icon> 系统公告</el-menu-item>
+        <el-menu-item index="/admin/awards"><el-icon><Trophy /></el-icon> 获奖榜单</el-menu-item>
         <el-menu-item index="/admin/logs"><el-icon><Document /></el-icon> 操作日志</el-menu-item>
       </el-menu>
     </aside>

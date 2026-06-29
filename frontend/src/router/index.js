@@ -52,6 +52,7 @@ const routes = [
           { path: 'reports', name: 'AdminReports', component: () => import('@/views/admin/AdminReports.vue'), meta: { title: '举报处理' } },
           { path: 'skill', name: 'AdminSkill', component: () => import('@/views/admin/AdminSkill.vue'), meta: { title: '技能标签' } },
           { path: 'notice', name: 'AdminNotice', component: () => import('@/views/admin/AdminNotice.vue'), meta: { title: '系统公告' } },
+          { path: 'awards', name: 'AdminAwards', component: () => import('@/views/admin/AdminAwards.vue'), meta: { title: '获奖榜单' } },
           { path: 'logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue'), meta: { title: '操作日志' } }
         ]
       }

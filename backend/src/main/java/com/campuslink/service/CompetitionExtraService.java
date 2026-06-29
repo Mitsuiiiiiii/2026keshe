@@ -328,6 +328,51 @@ public class CompetitionExtraService {
     }
 
     /**
+     * 列出全部获奖公示（管理员后台管理用）。
+     */
+    public List<CompetitionAward> listAllAwards() {
+        return awardMapper.selectList(new LambdaQueryWrapper<CompetitionAward>()
+                .orderByDesc(CompetitionAward::getAwardYear)
+                .orderByDesc(CompetitionAward::getId));
+    }
+
+    /**
+     * 更新获奖公示（管理员）。
+     */
+    public CompetitionAward updateAward(Long awardId, CompetitionAwardDTO dto, boolean admin) {
+        if (!admin) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅管理员可管理获奖榜单");
+        }
+        CompetitionAward award = awardMapper.selectById(awardId);
+        if (award == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "获奖记录不存在");
+        }
+        if (dto.getTeamId() != null) award.setTeamId(dto.getTeamId());
+        if (dto.getTeamName() != null) award.setTeamName(dto.getTeamName());
+        if (dto.getAwardLevel() != null) award.setAwardLevel(dto.getAwardLevel());
+        if (dto.getAwardYear() != null) award.setAwardYear(dto.getAwardYear());
+        if (dto.getMemberCount() != null) award.setMemberCount(dto.getMemberCount());
+        if (dto.getMembers() != null) award.setMembers(dto.getMembers());
+        awardMapper.updateById(award);
+        LOGGER.info("赛事获奖公示已更新, awardId={}", awardId);
+        return award;
+    }
+
+    /**
+     * 删除获奖公示（管理员）。
+     */
+    public void deleteAward(Long awardId, boolean admin) {
+        if (!admin) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "仅管理员可管理获奖榜单");
+        }
+        if (awardMapper.selectById(awardId) == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "获奖记录不存在");
+        }
+        awardMapper.deleteById(awardId);
+        LOGGER.info("赛事获奖公示已删除, awardId={}", awardId);
+    }
+
+    /**
      * 获奖排行榜：按队伍聚合历年获奖数 / 获奖人数，倒序返回榜单。
      */
     public List<Map<String, Object>> awardRanking() {
