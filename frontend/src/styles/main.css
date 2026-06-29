@@ -321,6 +321,7 @@ a {
   height: 220px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.25), transparent 70%);
+  pointer-events: none; /* 装饰圆圈不拦截点击，否则会盖住 hero 右上角的按钮 */
 }
 
 .cl-hero h1 {
